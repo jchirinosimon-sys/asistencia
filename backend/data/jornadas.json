@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "fecha": "2026-10-10",
+      "nombre": "Jornada ordinaria",
+      "estado": "habilitada",
+      "abreEn": "06:00",
+      "cierraEn": "08:00",
+      "zonaHoraria": "America/Guatemala",
+      "creadoEn": "2026-10-11T05:01:12.543Z",
+      "creadoPor": "8d5db5d9-4644-489a-973e-528ef3f8f9fd"
+    }
+  ]
+}

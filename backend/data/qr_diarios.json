@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "3bdc4f4a-9890-46c5-b6ad-e5a7408e08cc",
+      "jornadaId": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "versionId": "622578b4-35c3-47b8-9ba4-44fce10571ee",
+      "tokenHash": "214d64aa37cef9a060e101849d31d216844982ee61a235791b567d731f827eb4",
+      "activa": false,
+      "creadaEn": "2026-10-11T05:01:17.862Z",
+      "expiraEn": "2026-10-11T05:03:17.861Z",
+      "creadaPor": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "revocadaEn": "2026-10-11T05:01:23.770Z"
+    },
+    {
+      "id": "d4e1c3df-8ad5-4155-ac83-cf1f69180451",
+      "jornadaId": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "versionId": "69731355-3b34-43f6-b99c-4ff89ca48df1",
+      "tokenHash": "8c55c70c7e192fa063a9a8cbf94e854e9b20cac03de6d037d12bfe31831e1115",
+      "activa": false,
+      "creadaEn": "2026-10-11T05:01:23.769Z",
+      "expiraEn": "2026-10-11T05:03:23.768Z",
+      "creadaPor": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "revocadaEn": "2026-10-11T05:01:44.332Z"
+    },
+    {
+      "id": "ea669e29-1e7b-4c4e-a08e-b82cc8d07186",
+      "jornadaId": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "versionId": "63271168-b966-4b65-b030-0ed97dfb009d",
+      "tokenHash": "db1a8c31b9da5d4e4281f1bef9b10401ed1234058e17cc29278e6ab601ba4d84",
+      "activa": false,
+      "creadaEn": "2026-10-11T05:01:44.331Z",
+      "expiraEn": "2026-10-11T05:03:44.331Z",
+      "creadaPor": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "revocadaEn": "2026-10-11T05:04:12.450Z"
+    },
+    {
+      "id": "7dfe611a-5b1b-4df8-a685-bc432043b7b5",
+      "jornadaId": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "versionId": "649f10dc-bd1e-4289-9ead-24b3a185b03a",
+      "tokenHash": "71bfe9d31de38f754916c00a6c1417d8bd882248d77c2240673aa70ed7a20b0e",
+      "activa": true,
+      "creadaEn": "2026-10-11T05:04:12.449Z",
+      "expiraEn": "2026-10-11T05:06:12.447Z",
+      "creadaPor": "8d5db5d9-4644-489a-973e-528ef3f8f9fd"
+    }
+  ]
+}

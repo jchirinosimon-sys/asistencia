@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "nombre": "Programacion",
+      "clave": "1234",
+      "activo": true,
+      "id": "093a3ec6-cbf3-48d1-b7d9-0139eff2b970",
+      "creadoEn": "2026-10-11T04:56:27.038Z",
+      "actualizadoEn": "2026-10-11T04:56:27.038Z"
+    }
+  ]
+}

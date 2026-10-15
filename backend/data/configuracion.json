@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "configuracion-institucional",
+      "zonaHoraria": "America/Guatemala",
+      "horaResumenDiario": "17:00",
+      "retencionBackups": 30,
+      "escalaMin": 70,
+      "escalaMax": 100,
+      "actualizadoEn": "2026-10-11T04:59:33.977Z",
+      "actualizadoPor": "8d5db5d9-4644-489a-973e-528ef3f8f9fd"
+    }
+  ]
+}

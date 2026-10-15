@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "email": "admin@escuela.local",
+      "nombre": "Dirección",
+      "rol": "direccion",
+      "activo": true,
+      "passwordHash": "scrypt$f17cc063eb64cd3153edf1ad1c681f06$468f4a3c657617c339e676fb52593394c2124bbaee931952447eaffbc6e03e2822fb22ab74e13a943d46e7cda61bd0b225b9effa1ef96663c60076e65fcec262",
+      "creadoEn": "2026-10-11T04:22:42.209Z"
+    },
+    {
+      "id": "3f306bb2-b2b4-4650-bef5-6a68f32661fb",
+      "email": "joshuaosorio@gmail.com",
+      "nombre": "Joshua Emmanuel Osorio Danae",
+      "rol": "alumno",
+      "personaId": "3543c445-6342-4ca1-a858-ac9c6e32f1ba",
+      "activo": true,
+      "passwordHash": "scrypt$94495b45302be4064f22d3fdc2791236$d1958a0eb157b2dd867af7633197f64f03a6d1426135b1d21c65816b5f2784d4f16ce47d80705be9c2705e7d86e9f20234516df0664fe6dfed01ae64733e4b73",
+      "creadoEn": "2026-10-11T04:53:04.646Z",
+      "aprobadoPor": "8d5db5d9-4644-489a-973e-528ef3f8f9fd"
+    }
+  ]
+}

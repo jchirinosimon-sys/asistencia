@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "email": "admin@escuela.local",
+      "nombre": "Dirección",
+      "rol": "direccion",
+      "activo": true,
+      "passwordHash": "scrypt$f17cc063eb64cd3153edf1ad1c681f06$468f4a3c657617c339e676fb52593394c2124bbaee931952447eaffbc6e03e2822fb22ab74e13a943d46e7cda61bd0b225b9effa1ef96663c60076e65fcec262",
+      "creadoEn": "2026-10-11T04:22:42.209Z"
+    }
+  ]
+}

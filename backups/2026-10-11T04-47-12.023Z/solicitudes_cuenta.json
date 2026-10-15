@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "52836968-71fc-45b9-98d6-2fb4cd843e7d",
+      "nombre": "José Martín Chirino Simón",
+      "email": "jchirinosimon@gmail.com",
+      "rolSolicitado": "alumno",
+      "passwordHash": "scrypt$592b057e65db1e60a0c3a4015049cca8$7240f83ab0a236f6a6edf3d2293a74c6ef72bfbc46a15e0459593011001ac3d594cfb51c7469987a17a92eb20c2a917a4cc56181def0f9cd0b52c6c809f1ea8f",
+      "estado": "pendiente",
+      "creadoEn": "2026-10-11T04:46:33.234Z"
+    }
+  ]
+}

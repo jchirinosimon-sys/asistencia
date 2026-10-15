@@ -1,0 +1,617 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "0d84c9fa-14e9-4d61-8ae8-0560ee2ce164",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:26.371Z"
+    },
+    {
+      "id": "689c7a8e-f2b7-4cf0-8627-d50b4e088d2d",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:31.354Z"
+    },
+    {
+      "id": "157d5435-f661-4003-b4ca-66e5efca7eda",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:31.637Z"
+    },
+    {
+      "id": "9e37ffcc-4d34-4193-b56e-508d27cab6e5",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:31.834Z"
+    },
+    {
+      "id": "5820cd48-29b9-4638-bd22-668fca133233",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:32.011Z"
+    },
+    {
+      "id": "8d68d2af-a786-4096-b676-f6a029153364",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:32.181Z"
+    },
+    {
+      "id": "cb240127-5405-4db6-a51c-cbdd58e63522",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:32.360Z"
+    },
+    {
+      "id": "0ac9db24-40e2-42a6-a06a-1fae40873b14",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:32.581Z"
+    },
+    {
+      "id": "2fecab03-336e-4f90-94fc-a45c4cb0a897",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:32.753Z"
+    },
+    {
+      "id": "83a23ea4-6296-4ecd-af39-d1daea90fac4",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:32.906Z"
+    },
+    {
+      "id": "a106502f-badc-4bc6-8392-7371a90eae71",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:45.935Z"
+    },
+    {
+      "id": "5e75346b-c29f-4746-ae97-04a6a098ca95",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:46.452Z"
+    },
+    {
+      "id": "dae752d9-c054-40d7-bd76-12cdb2eca98e",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:46.658Z"
+    },
+    {
+      "id": "4ded337b-9181-45b7-9ac3-99e1a7155273",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:46.842Z"
+    },
+    {
+      "id": "ff092884-a8bf-4a83-9a18-d23080e2faed",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:47.020Z"
+    },
+    {
+      "id": "9d4ed512-2c77-4881-8c3f-def0d4be5a04",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:47.191Z"
+    },
+    {
+      "id": "d3f94da0-b150-4890-943a-452fea25b058",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:23:47.353Z"
+    },
+    {
+      "id": "03a44f5b-6ade-4b66-bc91-6cfec89111a4",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:00.877Z"
+    },
+    {
+      "id": "b888b6b6-25f9-4ab9-a4bc-b2ba1cf46cc8",
+      "usuarioId": null,
+      "accion": "inicio_sesion_fallido",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "fallido",
+      "creadoEn": "2026-10-11T04:24:01.490Z"
+    },
+    {
+      "id": "c9501b90-9633-44c8-9538-92e8d074d585",
+      "usuarioId": null,
+      "accion": "inicio_sesion_fallido",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "fallido",
+      "creadoEn": "2026-10-11T04:24:01.682Z"
+    },
+    {
+      "id": "f4946356-39ff-415e-a8f9-6ecefd0f4ec5",
+      "usuarioId": null,
+      "accion": "inicio_sesion_fallido",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "fallido",
+      "creadoEn": "2026-10-11T04:24:01.889Z"
+    },
+    {
+      "id": "97416604-aa71-4deb-b709-f2c76bf26a83",
+      "usuarioId": null,
+      "accion": "inicio_sesion_fallido",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "fallido",
+      "creadoEn": "2026-10-11T04:24:02.131Z"
+    },
+    {
+      "id": "3727b6ce-ee47-48c9-a33b-1f5c4af7bb08",
+      "usuarioId": null,
+      "accion": "inicio_sesion_fallido",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "fallido",
+      "creadoEn": "2026-10-11T04:24:02.497Z"
+    },
+    {
+      "id": "b9b39804-6bdd-4fda-8e2b-b0550d912540",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:03.070Z"
+    },
+    {
+      "id": "9a350eae-9d71-4417-9c15-e25c72cecfb5",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:03.305Z"
+    },
+    {
+      "id": "2837eb0d-0d8c-4b12-b86a-6e6065532868",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:03.505Z"
+    },
+    {
+      "id": "6954a80f-52fd-4f78-8967-46b941be9c57",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:03.889Z"
+    },
+    {
+      "id": "aff2e17c-d7e7-4d59-896f-4dc6bf08a959",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:04.151Z"
+    },
+    {
+      "id": "1ab6f678-242f-4251-8140-cbb27fa94260",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:04.440Z"
+    },
+    {
+      "id": "50dfaec1-27aa-4708-8a6f-6a1f21f3323a",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:04.790Z"
+    },
+    {
+      "id": "fb11cc6f-9d0e-499f-a40d-b8e55aef6ee4",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:05.284Z"
+    },
+    {
+      "id": "ff680f0b-880a-4518-9d72-1467c8280b2b",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:05.378Z"
+    },
+    {
+      "id": "eaba7aac-6bbe-4f9e-a8b6-9cefebfdf5b4",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:05.492Z"
+    },
+    {
+      "id": "a72824fa-3108-4680-a5e0-542983779ddb",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:05.610Z"
+    },
+    {
+      "id": "7a5d6c13-0880-4221-b6df-de329835a6d3",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:05.723Z"
+    },
+    {
+      "id": "f599ef0f-a5d3-4ad9-881b-e29dfe5834be",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:05.844Z"
+    },
+    {
+      "id": "d735cd24-b7c2-4312-8733-8e4a1f6b089d",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:05.937Z"
+    },
+    {
+      "id": "18e86dd8-28d8-4e19-a1aa-05157b060b58",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:06.042Z"
+    },
+    {
+      "id": "37951865-e1e7-48c2-b550-e5ebbb0a59f9",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:06.142Z"
+    },
+    {
+      "id": "e310b79f-d749-469e-976e-29fb48fc0362",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:06.278Z"
+    },
+    {
+      "id": "52489c4e-a474-48f8-8a58-780c9274d17b",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:06.377Z"
+    },
+    {
+      "id": "2f4dbc52-7363-4ebb-a10d-ea4a9275a78e",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:06.495Z"
+    },
+    {
+      "id": "c4f5a53a-0b63-408a-9dff-313703f85b39",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:24:06.610Z"
+    },
+    {
+      "id": "7636b66d-d35f-4822-92f2-73e4a9c9ba6c",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:46:07.818Z"
+    },
+    {
+      "id": "eb367256-dc7e-44a6-bf36-67f449a3fef7",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:46:50.777Z"
+    },
+    {
+      "id": "cec6365a-2bee-4fcb-b396-36def32fd7d7",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "crear_respaldo",
+      "entidad": "2026-10-11T04-47-12.023Z",
+      "creadoEn": "2026-10-11T04:47:12.155Z"
+    },
+    {
+      "id": "e9226092-3fcf-4d52-b417-1a4572502c82",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "exportar",
+      "entidad": "alumnos",
+      "creadoEn": "2026-10-11T04:48:09.036Z"
+    },
+    {
+      "id": "951c0022-ced3-43ae-b551-9d3b1f9e47e4",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "crear",
+      "entidad": "alumnos",
+      "creadoEn": "2026-10-11T04:50:31.149Z"
+    },
+    {
+      "id": "c5625eee-e584-4688-819f-71e5d052d41a",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "exportar",
+      "entidad": "alumnos",
+      "creadoEn": "2026-10-11T04:50:36.875Z"
+    },
+    {
+      "id": "07883bdc-d66a-44ab-820b-0ce8eda7bb83",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:52:19.147Z"
+    },
+    {
+      "id": "ccacf66c-119c-4b81-92ca-a7cac3b800d4",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "solicitud_cuenta_aprobar",
+      "entidad": "6dfc1765-749c-408a-ac0f-55a0a0f1ae5f",
+      "creadoEn": "2026-10-11T04:53:04.671Z"
+    },
+    {
+      "id": "53db7527-8ce7-463e-9a5c-04b152ce20d1",
+      "usuarioId": "3f306bb2-b2b4-4650-bef5-6a68f32661fb",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "joshuaosorio@gmail.com",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:53:42.095Z"
+    },
+    {
+      "id": "39b3c2eb-ffac-44b3-b284-d40402f5be6c",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-11T04:56:08.012Z"
+    },
+    {
+      "id": "2db2051b-72bb-4613-aff8-e8ad5a32aa92",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "crear",
+      "entidad": "especialidades",
+      "creadoEn": "2026-10-11T04:56:27.044Z"
+    },
+    {
+      "id": "b0d32c6c-90ba-4245-a435-c013be5e2a7f",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "actualizar_configuracion",
+      "entidad": "configuracion-institucional",
+      "creadoEn": "2026-10-11T04:59:01.206Z"
+    },
+    {
+      "id": "a48d441b-ba1d-4374-ba31-cdcb89ddabe1",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "actualizar_configuracion",
+      "entidad": "configuracion-institucional",
+      "creadoEn": "2026-10-11T04:59:33.108Z"
+    },
+    {
+      "id": "aca62c04-d841-499a-bd86-fc6b85c5ee57",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "actualizar_configuracion",
+      "entidad": "configuracion-institucional",
+      "creadoEn": "2026-10-11T04:59:33.669Z"
+    },
+    {
+      "id": "f72428b3-1741-4759-8c4d-5ed94e708e49",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "actualizar_configuracion",
+      "entidad": "configuracion-institucional",
+      "creadoEn": "2026-10-11T04:59:33.834Z"
+    },
+    {
+      "id": "311d244a-dd05-4ee2-8875-211f303e470c",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "actualizar_configuracion",
+      "entidad": "configuracion-institucional",
+      "creadoEn": "2026-10-11T04:59:33.984Z"
+    },
+    {
+      "id": "62078941-1c66-4a49-b5ed-bf861c889d9a",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "crear",
+      "entidad": "calendario_escolar",
+      "creadoEn": "2026-10-11T05:00:37.783Z"
+    },
+    {
+      "id": "7b7382fc-f2ae-4a39-9a3e-154afd6bcaac",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "editar",
+      "entidad": "calendario_escolar:c0f5e80d-1966-48ee-8112-fd7aa3d8ef9a",
+      "creadoEn": "2026-10-11T05:01:06.043Z"
+    },
+    {
+      "id": "82d3d6b1-a7fe-480f-b933-d40f5af1e1c7",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "habilitar_jornada",
+      "entidad": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "creadoEn": "2026-10-11T05:01:12.548Z"
+    },
+    {
+      "id": "4db1b768-34e3-4d13-95c7-2e130835912d",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "renovar_qr",
+      "entidad": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "creadoEn": "2026-10-11T05:01:17.879Z"
+    },
+    {
+      "id": "5c8153a5-3174-4990-a759-5870b48f6cf9",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "renovar_qr",
+      "entidad": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "creadoEn": "2026-10-11T05:01:23.785Z"
+    },
+    {
+      "id": "accf58d6-0446-4d4a-aaba-f5fe0305026e",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "renovar_qr",
+      "entidad": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "creadoEn": "2026-10-11T05:01:44.347Z"
+    },
+    {
+      "id": "e449a0e1-0387-42ff-8fd3-ab48deb00836",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "renovar_qr",
+      "entidad": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "creadoEn": "2026-10-11T05:04:12.474Z"
+    },
+    {
+      "id": "1cbac6a7-575f-43d2-b6a6-ff8b4ce0aa2b",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-12T19:45:08.733Z"
+    },
+    {
+      "id": "f7ef3ef3-e48a-4dc5-be4c-aca5755497d5",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-15T05:00:23.230Z"
+    },
+    {
+      "id": "9dccb08e-4fb0-49da-bf32-a72255d39c68",
+      "usuarioId": null,
+      "accion": "inicio_sesion_fallido",
+      "entidad": "autenticacion",
+      "email": "admin@direccion.com",
+      "resultado": "fallido",
+      "creadoEn": "2026-10-15T12:28:26.842Z"
+    },
+    {
+      "id": "ebe989a5-681c-4369-a950-2150cd88be15",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-15T12:29:23.873Z"
+    },
+    {
+      "id": "d895c50e-88af-468f-8c96-0e2db6467b5d",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-15T12:29:40.099Z"
+    },
+    {
+      "id": "bd89cc6a-61a5-452b-9015-0aec9fec9547",
+      "usuarioId": "3f306bb2-b2b4-4650-bef5-6a68f32661fb",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "joshuaosorio@gmail.com",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-15T12:31:13.775Z"
+    }
+  ]
+}

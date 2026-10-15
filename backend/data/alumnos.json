@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "nombres": "Joshua Emanuel",
+      "apellidos": "Osorio Danae",
+      "matricula": "123456789098",
+      "fechaNacimiento": "2009-10-25",
+      "activo": true,
+      "id": "3543c445-6342-4ca1-a858-ac9c6e32f1ba",
+      "creadoEn": "2026-10-11T04:50:31.140Z",
+      "actualizadoEn": "2026-10-11T04:50:31.140Z"
+    }
+  ]
+}

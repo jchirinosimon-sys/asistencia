@@ -1,0 +1,8 @@
+{
+  "name": "plataforma-gestion-escolar-json",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node --env-file-if-exists=.env backend/src/server.js", "dev": "node --env-file-if-exists=.env --watch backend/src/server.js", "init": "node --env-file-if-exists=.env backend/src/init.js", "test": "node --test" }
+}
