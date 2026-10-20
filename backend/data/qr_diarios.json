@@ -39,9 +39,20 @@
       "jornadaId": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
       "versionId": "649f10dc-bd1e-4289-9ead-24b3a185b03a",
       "tokenHash": "71bfe9d31de38f754916c00a6c1417d8bd882248d77c2240673aa70ed7a20b0e",
-      "activa": true,
+      "activa": false,
       "creadaEn": "2026-10-11T05:04:12.449Z",
       "expiraEn": "2026-10-11T05:06:12.447Z",
+      "creadaPor": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "revocadaEn": "2026-10-15T18:02:36.334Z"
+    },
+    {
+      "id": "df0ccb82-7529-471d-b18e-9f275660529b",
+      "jornadaId": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "versionId": "61e4ce5b-0102-478c-b8ff-68b832222885",
+      "tokenHash": "ea7bc7086da5ef0e58d85df764cb7c2adef847ecb6c14c9a3b09000bec451a3e",
+      "activa": true,
+      "creadaEn": "2026-10-15T18:02:36.333Z",
+      "expiraEn": "2026-10-15T18:04:36.328Z",
       "creadaPor": "8d5db5d9-4644-489a-973e-528ef3f8f9fd"
     }
   ]

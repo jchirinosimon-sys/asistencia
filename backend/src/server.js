@@ -366,8 +366,9 @@ const server = http.createServer(async (req, res) => {
     if (!candidate.startsWith(root + path.sep) && candidate !== path.join(root, 'index.html')) return json(res, 403, { error: 'Ruta no permitida.' });
     const info = await stat(candidate).catch(() => null);
     if (!info?.isFile()) return json(res, 404, { error: 'No encontrado.' });
-    const ext = path.extname(candidate);
-    res.writeHead(200, { ...securityHeaders,'content-type': ext === '.html' ? 'text/html; charset=utf-8' : ext === '.css' ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8' });
+    const ext = path.extname(candidate).toLowerCase();
+    const contentTypes={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.webmanifest':'application/manifest+json; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
+    res.writeHead(200, { ...securityHeaders,'content-type': contentTypes[ext] ?? 'application/octet-stream','cache-control': candidate.endsWith(`${path.sep}sw.js`) ? 'no-cache' : 'public, max-age=300' });
     res.end(await readFile(candidate));
   } catch (error) { if(!error.status)console.error('Error de solicitud:',error.stack??error.message);json(res, error.status ?? 500, { error: error.status ? error.message : 'Error interno del servidor.' }); }
 });

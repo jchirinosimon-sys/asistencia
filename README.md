@@ -39,6 +39,10 @@ Cada colección tiene forma `{ "schemaVersion": 1, "records": [...] }` e IDs ún
 
 ## Portales y uso
 
+### Instalar en el teléfono
+
+La interfaz incluye un manifiesto PWA, iconos de 192 y 512 px y un service worker para que Chrome pueda ofrecer **Instalar** o **Crear acceso directo**. El service worker conserva únicamente los archivos públicos de la interfaz; nunca guarda en caché las respuestas de `/api/` ni los datos institucionales. En Android, abre la URL HTTPS del servicio en Chrome y usa el menú ⋮ → **Instalar aplicación** o **Añadir a pantalla de inicio**. También aparece el botón **Instalar app** cuando Chrome informa que la instalación está disponible. Después de subir estos archivos al repositorio y esperar el despliegue de Render, recarga la página para que Chrome detecte el manifiesto.
+
 ### Dirección
 
 Desde el menú lateral puede revisar solicitudes de cuenta, aprobarlas vinculándolas a un expediente ya existente o rechazarlas; también puede crear cuentas directamente, alumnos, maestros, tutores, grupos, especialidades, semestres, materias, inscripciones, horarios, calendario y periodos. Puede consultar registros, desactivar/reactivar entradas, habilitar jornadas, renovar QR, publicar boletas y gestionar respaldos. Los formularios de relaciones y horarios vinculan por ID. El servidor verifica las referencias y detecta cruces de maestro, grupo o aula.

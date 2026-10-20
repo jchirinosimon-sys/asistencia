@@ -612,6 +612,31 @@
       "email": "joshuaosorio@gmail.com",
       "resultado": "correcto",
       "creadoEn": "2026-10-15T12:31:13.775Z"
+    },
+    {
+      "id": "50b3255b-f72c-4b2f-a6cd-84db62909968",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "admin@escuela.local",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-15T18:01:59.758Z"
+    },
+    {
+      "id": "ff633a22-87f5-4294-898f-da1b4c54d1dd",
+      "usuarioId": "8d5db5d9-4644-489a-973e-528ef3f8f9fd",
+      "accion": "renovar_qr",
+      "entidad": "f82d260a-6db0-470b-bb43-ce2cd667ed7b",
+      "creadoEn": "2026-10-15T18:02:36.351Z"
+    },
+    {
+      "id": "e16ba238-cca3-41e8-9c1c-d6fa5968d140",
+      "usuarioId": "3f306bb2-b2b4-4650-bef5-6a68f32661fb",
+      "accion": "inicio_sesion_correcto",
+      "entidad": "autenticacion",
+      "email": "joshuaosorio@gmail.com",
+      "resultado": "correcto",
+      "creadoEn": "2026-10-15T18:03:29.027Z"
     }
   ]
 }
