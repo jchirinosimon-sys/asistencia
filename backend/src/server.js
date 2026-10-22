@@ -244,7 +244,7 @@ const server = http.createServer(async (req, res) => {
       }
       if(req.method==='POST'&&url.pathname==='/api/qr_diarios/renovar'&&user.rol==='direccion'){
         const input=await body(req);const jornada=(await storage.read('jornadas')).find(x=>x.id===input.jornadaId&&x.estado==='habilitada');if(!jornada)return json(res,404,{error:'No existe una jornada habilitada para ese QR.'});
-        const versionId=randomUUID(),expiresAt=Date.now()+120000,token=randomBytes(16).toString('base64url'),digest=createHash('sha256').update(token).digest('hex');
+        const versionId=randomUUID(),expiresAt=Date.now()+10*60*1000,token=randomBytes(16).toString('base64url'),digest=createHash('sha256').update(token).digest('hex');
         const qr={id:randomUUID(),jornadaId:jornada.id,versionId,tokenHash:digest,activa:true,creadaEn:new Date().toISOString(),expiraEn:new Date(expiresAt).toISOString(),creadaPor:user.id};
         await storage.transact(async read=>{const oldVersions=(await read('qr_diarios')).filter(x=>x.jornadaId===jornada.id&&x.activa).map(x=>({...x,activa:false,revocadaEn:new Date().toISOString()}));return[{collection:'qr_diarios',upsert:[...oldVersions,qr]}];});
         await audit(user,'renovar_qr',jornada.id);return json(res,201,{jornadaId:jornada.id,versionId,token,expiraEn:qr.expiraEn});

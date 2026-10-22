@@ -5,6 +5,15 @@
   const installed = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
   const hideInstallButton = () => installButton?.classList.add('hidden');
 
+  if (installed()) {
+    const splash = document.querySelector('#app-splash');
+    splash?.classList.add('is-active');
+    window.setTimeout(() => {
+      splash?.classList.add('is-leaving');
+      window.setTimeout(() => splash?.remove(), 500);
+    }, 850);
+  }
+
   if (installButton && !installed()) {
     window.addEventListener('beforeinstallprompt', event => {
       event.preventDefault();

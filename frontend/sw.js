@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gestion-escolar-shell-v1';
+const CACHE_NAME = 'asistencia-shell-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -9,7 +9,8 @@ const APP_SHELL = [
   '/pwa.js',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/icons/icon-512.png',
+  '/icons/logo.svg'
 ];
 
 self.addEventListener('install', event => {
@@ -20,7 +21,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key.startsWith('gestion-escolar-shell-') && key !== CACHE_NAME).map(key => caches.delete(key))))
+      .then(keys => Promise.all(keys.filter(key => /^(gestion-escolar-shell-|asistencia-shell-)/.test(key) && key !== CACHE_NAME).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
@@ -39,12 +40,12 @@ self.addEventListener('fetch', event => {
   }
 
   event.respondWith(
-    caches.match(request).then(cached => cached || fetch(request).then(response => {
+    fetch(request).then(response => {
       if (response.ok && response.type === 'basic') {
         const copy = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
       }
       return response;
-    }))
+    }).catch(() => caches.match(request))
   );
 });

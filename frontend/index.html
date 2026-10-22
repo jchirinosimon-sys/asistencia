@@ -2,11 +2,12 @@
 <html lang="es">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#123b35"><meta name="description" content="Plataforma institucional para la gestión escolar."><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>Gestión Escolar</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png"><link rel="apple-touch-icon" href="/icons/icon-192.png"><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./modules.css">
+  <meta name="theme-color" content="#123b35"><meta name="description" content="Asistencia escolar sencilla, rápida y segura."><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>Asistencia</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png"><link rel="apple-touch-icon" href="/icons/icon-192.png"><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./modules.css">
 </head>
 <body>
+  <div id="app-splash" class="app-splash" aria-hidden="true"><div class="splash-brand"><img src="/icons/logo.svg" alt=""></div><strong>Asistencia</strong><span class="splash-caption">Cada día cuenta</span></div>
   <main class="shell">
-    <header class="topbar"><a class="brand" href="/"><div class="brand-mark">GE</div><div><p class="eyebrow">PLATAFORMA ESCOLAR</p><h1>Gestión Escolar</h1></div></a><div class="topbar-actions"><button id="install-app" class="install-app hidden" type="button">Instalar app</button><div id="session-indicator" class="session-indicator hidden"><span class="online-dot"></span> Sesión protegida</div></div></header>
+    <header class="topbar"><a class="brand" href="/"><img class="brand-mark" src="/icons/logo.svg" alt=""><div><p class="eyebrow">PLATAFORMA ESCOLAR</p><h1>Asistencia</h1></div></a><div class="topbar-actions"><button id="install-app" class="install-app hidden" type="button">Instalar Asistencia</button><div id="session-indicator" class="session-indicator hidden"><span class="online-dot"></span> Sesión protegida</div></div></header>
     <section id="login" class="card login-card">
       <p class="eyebrow">ACCESO SEGURO</p><h2>Bienvenido</h2><p class="muted">Inicia sesión con tu cuenta institucional.</p>
       <form id="login-form"><label>Correo institucional<input type="email" name="email" autocomplete="username" required></label><label>Contraseña<input type="password" name="password" autocomplete="current-password" required></label><button type="submit">Iniciar sesión</button><p id="login-error" class="error" role="alert"></p><p class="form-note">El sistema registra el correo y el resultado del acceso; nunca guarda la contraseña escrita.</p></form>
@@ -26,7 +27,7 @@
         <section class="card module-card"><div class="section-heading"><div><p class="eyebrow" id="module-kicker">RESUMEN</p><h3 id="list-title">Información</h3></div><div class="list-tools"><input id="record-search" class="search-box" type="search" placeholder="Buscar registros" aria-label="Buscar registros"><button id="refresh" class="icon-button" aria-label="Actualizar">↻</button></div></div><div id="list" class="list muted">Selecciona un apartado para consultar tus datos autorizados.</div></section>
       </div></div>
     </section>
-    <footer>Gestión Escolar <span>·</span> Información administrada de forma segura por la institución</footer>
+    <footer>Asistencia <span>·</span> Información administrada de forma segura por la institución</footer>
   </main><script type="module" src="./app.js"></script><script src="/pwa.js" defer></script>
 </body>
 </html>
