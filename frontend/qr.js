@@ -3,7 +3,7 @@
 const multiply=(x,y)=>{let z=0;for(let i=7;i>=0;i--){z=(z<<1)^((z>>>7)*0x11d);z^=((y>>>i)&1)*x;}return z;};
 function appendBits(out,value,length){for(let i=length-1;i>=0;i--)out.push((value>>>i)&1);}
 function reedSolomon(data,degree){let generator=[1];for(let i=0;i<degree;i++){const next=Array(generator.length+1).fill(0),root=(()=>{let n=1;for(let k=0;k<i;k++)n=multiply(n,2);return n})();for(let j=0;j<generator.length;j++){next[j]^=generator[j];next[j+1]^=multiply(generator[j],root);}generator=next;}const result=[...data,...Array(degree).fill(0)];for(let i=0;i<data.length;i++){const factor=result[i];for(let j=0;j<generator.length;j++)result[i+j]^=multiply(generator[j],factor);}return result.slice(-degree);}
-function drawFinder(matrix,reserved,cx,cy){const size=matrix.length;for(let dy=-1;dy<=7;dy++)for(let dx=-1;dx<=7;dx++){const x=cx+dx,y=cy+dy;if(x<0||y<0||x>=size||y>=size)continue;reserved[y][x]=true;const d=Math.max(Math.abs(dx-3),Math.abs(dy-3));matrix[y][x]=d!==2&&d!==4;}}
+function drawFinder(matrix,reserved,cx,cy){const size=matrix.length;for(let dy=-1;dy<=7;dy++)for(let dx=-1;dx<=7;dx++){const x=cx+dx-3,y=cy+dy-3;if(x<0||y<0||x>=size||y>=size)continue;reserved[y][x]=true;const d=Math.max(Math.abs(dx-3),Math.abs(dy-3));matrix[y][x]=d!==2&&d!==4;}}
 function drawAlignment(matrix,reserved,cx,cy){for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const x=cx+dx,y=cy+dy;reserved[y][x]=true;matrix[y][x]=Math.max(Math.abs(dx),Math.abs(dy))!==1;}}
 function bchRemainder(value,poly){let v=value;const degree=x=>31-Math.clz32(x);while(degree(v)>=degree(poly))v^=poly<<(degree(v)-degree(poly));return v;}
 function createMatrix(text){
