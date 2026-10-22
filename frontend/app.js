@@ -54,7 +54,17 @@ function webAuthnOptions(options,creation=false){const decoded={...options,chall
 function credentialBytes(value){return btoa(String.fromCharCode(...new Uint8Array(value))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function serializeCredential(credential,creation){const response=credential.response;return{id:credential.id,rawId:credentialBytes(credential.rawId),type:credential.type,authenticatorAttachment:credential.authenticatorAttachment,clientExtensionResults:credential.getClientExtensionResults(),response:creation?{clientDataJSON:credentialBytes(response.clientDataJSON),attestationObject:credentialBytes(response.attestationObject),transports:response.getTransports?.()??[]}:{clientDataJSON:credentialBytes(response.clientDataJSON),authenticatorData:credentialBytes(response.authenticatorData),signature:credentialBytes(response.signature),userHandle:response.userHandle?credentialBytes(response.userHandle):null}};}
 async function registerCurrentDevice(){
-  const result=await api('/api/auth/passkey/registration/options',{method:'POST',body:JSON.stringify({email:me?.email??$('#signup-form [name="email"]').value,name:me?.nombre??$('#signup-form [name="nombre"]').value})});
+  const emailField=$('#signup-form [name="email"]'),nameField=$('#signup-form [name="nombre"]');
+  const email=String(me?.email??emailField?.value??'').trim().toLowerCase();
+  const name=String(me?.nombre??nameField?.value??'').trim();
+  if(!me){
+    if(!name){nameField?.reportValidity();throw new Error('Escribe primero tu nombre completo.');}
+    if(name.length<2||name.length>120)throw new Error('El nombre debe tener entre 2 y 120 caracteres.');
+    if(!email){emailField?.reportValidity();throw new Error('Escribe primero tu correo institucional.');}
+    if(!/^\\S+@\\S+\\.\\S+$/.test(email)){emailField?.reportValidity();throw new Error('Escribe un correo institucional válido.');}
+  }
+  if(!window.isSecureContext||!navigator.credentials?.create)throw new Error('Face ID, huella o bloqueo de pantalla requiere abrir Asistencia en Chrome con HTTPS.');
+  const result=await api('/api/auth/passkey/registration/options',{method:'POST',body:JSON.stringify({email,name})});
   const credential=await navigator.credentials.create({publicKey:webAuthnOptions(result.options,true)});
   if(!credential)throw new Error('No se completó la verificación del dispositivo.');
   const verified=await api('/api/auth/passkey/registration/verify',{method:'POST',body:JSON.stringify({registrationId:result.registrationId,response:serializeCredential(credential,true)})});
