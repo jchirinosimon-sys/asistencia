@@ -8,9 +8,9 @@ function drawAlignment(matrix,reserved,cx,cy){for(let dy=-2;dy<=2;dy++)for(let d
 function bchRemainder(value,poly){let v=value;const degree=x=>31-Math.clz32(x);while(degree(v)>=degree(poly))v^=poly<<(degree(v)-degree(poly));return v;}
 function createMatrix(text){
   const bytes=Array.from(new TextEncoder().encode(text));
-  const version=bytes.length<=78?4:bytes.length<=106?5:10;
+  const version=bytes.length<=53?3:bytes.length<=78?4:bytes.length<=106?5:10;
   if(bytes.length>271)throw new Error('El contenido excede la capacidad del QR.');
-  const size=17+4*version,blockLengths=version===4?[80]:version===5?[108]:[68,68,69,69],ecPerBlock=version===4?20:version===5?26:18,dataCodewords=blockLengths.reduce((sum,length)=>sum+length,0);
+  const size=17+4*version,blockLengths=version===3?[55]:version===4?[80]:version===5?[108]:[68,68,69,69],ecPerBlock=version===3?15:version===4?20:version===5?26:18,dataCodewords=blockLengths.reduce((sum,length)=>sum+length,0);
   const bits=[];appendBits(bits,4,4);appendBits(bits,bytes.length,version<10?8:16);for(const byte of bytes)appendBits(bits,byte,8);for(let i=0;i<Math.min(4,dataCodewords*8-bits.length);i++)bits.push(0);while(bits.length%8)bits.push(0);
   const data=[];for(let i=0;i<bits.length;i+=8){let value=0;for(let j=0;j<8;j++)value=(value<<1)|bits[i+j];data.push(value);}for(let pad=0;data.length<dataCodewords;pad++)data.push(pad%2===0?0xec:0x11);
   const blocks=[];let offset=0;for(const length of blockLengths){const chunk=data.slice(offset,offset+length);offset+=length;blocks.push({data:chunk,ec:reedSolomon(chunk,ecPerBlock)});}
@@ -18,7 +18,7 @@ function createMatrix(text){
   const matrix=Array.from({length:size},()=>Array(size).fill(false)),reserved=Array.from({length:size},()=>Array(size).fill(false));
   drawFinder(matrix,reserved,3,3);drawFinder(matrix,reserved,size-4,3);drawFinder(matrix,reserved,3,size-4);
   for(let i=8;i<size-8;i++){reserved[6][i]=reserved[i][6]=true;matrix[6][i]=matrix[i][6]=i%2===0;}
-  const align=version===4?[6,26]:version===5?[6,30]:[6,28,50];for(let yi=0;yi<align.length;yi++)for(let xi=0;xi<align.length;xi++)if(!((yi===0&&xi===0)||(yi===0&&xi===align.length-1)||(yi===align.length-1&&xi===0)))drawAlignment(matrix,reserved,align[xi],align[yi]);
+  const align=version===3?[6,22]:version===4?[6,26]:version===5?[6,30]:[6,28,50];for(let yi=0;yi<align.length;yi++)for(let xi=0;xi<align.length;xi++)if(!((yi===0&&xi===0)||(yi===0&&xi===align.length-1)||(yi===align.length-1&&xi===0)))drawAlignment(matrix,reserved,align[xi],align[yi]);
   const formatData=8,format=(formatData<<10)|bchRemainder(formatData<<10,0x537),masked=format^0x5412,bit=n=>((masked>>>n)&1)!==0;
   for(let i=0;i<=5;i++){reserved[i][8]=true;matrix[i][8]=bit(i);}reserved[7][8]=true;matrix[7][8]=bit(6);reserved[8][8]=true;matrix[8][8]=bit(7);reserved[8][7]=true;matrix[8][7]=bit(8);for(let i=9;i<15;i++){reserved[8][14-i]=true;matrix[8][14-i]=bit(i);}
   for(let i=0;i<8;i++){reserved[8][size-1-i]=true;matrix[8][size-1-i]=bit(i);}for(let i=8;i<15;i++){reserved[size-15+i][8]=true;matrix[size-15+i][8]=bit(i);}reserved[size-8][8]=true;matrix[size-8][8]=true;

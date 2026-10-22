@@ -1,7 +1,7 @@
 import http from 'node:http';
 import path from 'node:path';
 import { readFile, stat, readdir } from 'node:fs/promises';
-import { randomUUID, randomBytes, createHash, timingSafeEqual } from 'node:crypto';
+import { randomUUID, randomInt, createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { JsonStorage, COLLECTIONS } from './storage/json-storage.js';
 import { createSession, readSession, verifyPassword, hashPassword } from './security.js';
 
@@ -16,12 +16,14 @@ await storage.init();
 const roles = ['direccion', 'maestro', 'alumno', 'tutor'];
 const loginFailures=new Map();
 const signupFailures=new Map();
+const attendanceFailures=new Map();
 const createCollections = ['alumnos','maestros','tutores','relaciones_tutores','grupos','especialidades','semestres','materias','inscripciones','avisos_escolares','horarios','calendario_escolar','periodos_evaluacion'];
 const securityHeaders={'x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer','content-security-policy':"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; connect-src 'self'; media-src 'self' blob:; form-action 'self'",'permissions-policy':'camera=(self), microphone=(), geolocation=()'};
 const json = (res, status, value, headers={}) => { res.writeHead(status, { ...securityHeaders,...headers,'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };
 const todayAt = (zone='America/Guatemala') => new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const fail = (status,message) => Object.assign(new Error(message),{status});
 const safeEqual = (a,b) => { const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y); };
+const hashQrToken = token => token.length===5 ? createHmac('sha256',secret).update(token).digest('hex') : createHash('sha256').update(token).digest('hex');
 function validateFields(collection, record){
   const required={alumnos:['nombres','apellidos','matricula'],maestros:['nombres','apellidos'],tutores:['nombres','apellidos'],relaciones_tutores:['tutorId','alumnoId','parentesco'],grupos:['nombre','ciclo'],especialidades:['nombre'],semestres:['nombre'],materias:['nombre'],inscripciones:['alumnoId','grupoId','ciclo'],avisos_escolares:['titulo','contenido'],horarios:['diaSemana','horaInicio','horaFin','materiaId','maestroId','grupoId'],calendario_escolar:['fecha','tipo'],periodos_evaluacion:['nombre','iniciaEn','terminaEn']}[collection]??[];
   for(const key of required)if(record[key]===undefined||record[key]===null||record[key]==='')throw fail(400,`El campo ${key} es obligatorio.`);
@@ -244,14 +246,26 @@ const server = http.createServer(async (req, res) => {
       }
       if(req.method==='POST'&&url.pathname==='/api/qr_diarios/renovar'&&user.rol==='direccion'){
         const input=await body(req);const jornada=(await storage.read('jornadas')).find(x=>x.id===input.jornadaId&&x.estado==='habilitada');if(!jornada)return json(res,404,{error:'No existe una jornada habilitada para ese QR.'});
-        const versionId=randomUUID(),expiresAt=Date.now()+10*60*1000,token=randomBytes(16).toString('base64url'),digest=createHash('sha256').update(token).digest('hex');
-        const qr={id:randomUUID(),jornadaId:jornada.id,versionId,tokenHash:digest,activa:true,creadaEn:new Date().toISOString(),expiraEn:new Date(expiresAt).toISOString(),creadaPor:user.id};
-        await storage.transact(async read=>{const oldVersions=(await read('qr_diarios')).filter(x=>x.jornadaId===jornada.id&&x.activa).map(x=>({...x,activa:false,revocadaEn:new Date().toISOString()}));return[{collection:'qr_diarios',upsert:[...oldVersions,qr]}];});
+        const versionId=randomUUID();let token,qr;
+        await storage.transact(async read=>{
+          const all=await read('qr_diarios'),now=Date.now(),occupied=new Set(all.filter(x=>x.activa&&Date.parse(x.expiraEn)>now&&x.jornadaId!==jornada.id).map(x=>x.tokenHash));
+          for(let attempt=0;attempt<100;attempt++){const candidate=String(randomInt(0,100000)).padStart(5,'0');if(!occupied.has(hashQrToken(candidate))){token=candidate;break;}}
+          if(!token)throw fail(503,'No se pudo generar un código libre. Inténtalo de nuevo.');
+          const createdAt=new Date(now).toISOString(),expiresAt=now+10*60*1000;
+          qr={id:randomUUID(),jornadaId:jornada.id,versionId,tokenHash:hashQrToken(token),activa:true,creadaEn:createdAt,expiraEn:new Date(expiresAt).toISOString(),creadaPor:user.id};
+          const oldVersions=all.filter(x=>x.jornadaId===jornada.id&&x.activa).map(x=>({...x,activa:false,revocadaEn:createdAt}));
+          return[{collection:'qr_diarios',upsert:[...oldVersions,qr]}];
+        });
         await audit(user,'renovar_qr',jornada.id);return json(res,201,{jornadaId:jornada.id,versionId,token,expiraEn:qr.expiraEn});
       }
       if(req.method==='POST'&&url.pathname==='/api/asistencias/registrar'&&user.rol==='alumno'){
-        const input=await body(req);if(typeof input.token!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(input.token))return json(res,400,{error:'Código QR inválido.'});
-        const digest=createHash('sha256').update(input.token).digest('hex'),version=(await storage.read('qr_diarios')).find(x=>x.activa&&Date.parse(x.expiraEn)>Date.now()&&safeEqual(x.tokenHash,digest));if(!version)return json(res,410,{error:'El código QR venció o fue revocado.'});
+        const attemptKey=user.id,now=Date.now(),attempt=attendanceFailures.get(attemptKey);
+        if(attempt&&attempt.until>now&&attempt.count>=10)return json(res,429,{error:'Se alcanzó el límite de intentos de código. Espera 15 minutos y vuelve a intentarlo.'});
+        if(attempt&&attempt.until<=now)attendanceFailures.delete(attemptKey);
+        const input=await body(req);if(typeof input.token!=='string'||!(/^[0-9]{5}$/.test(input.token)||/^[A-Za-z0-9_-]{22}$/.test(input.token)))return json(res,400,{error:'Escribe el código de 5 números o escanea el QR completo.'});
+        const digest=hashQrToken(input.token),version=(await storage.read('qr_diarios')).find(x=>x.activa&&Date.parse(x.expiraEn)>Date.now()&&safeEqual(x.tokenHash,digest));
+        if(!version){const state=attendanceFailures.get(attemptKey);attendanceFailures.set(attemptKey,{count:state&&state.until>now?state.count+1:1,until:state&&state.until>now?state.until:now+15*60_000});return json(res,410,{error:'El código venció o no es correcto. Revisa que tenga cinco cifras y genera uno nuevo si expiró.'});}
+        attendanceFailures.delete(attemptKey);
         const jornada=(await storage.read('jornadas')).find(x=>x.id===version.jornadaId&&x.estado==='habilitada');if(!jornada)return json(res,409,{error:'La jornada no está habilitada.'});
         if(jornada.fecha!==todayAt(jornada.zonaHoraria))return json(res,410,{error:'El código QR venció o corresponde a otra fecha.'});
         const localTime=timeAt(new Date(),jornada.zonaHoraria);if(localTime<jornada.abreEn||localTime>jornada.cierraEn)return json(res,409,{error:'El periodo de registro de entrada está cerrado.'});
