@@ -1,4 +1,4 @@
-const CACHE_NAME = 'asistencia-shell-v9';
+const CACHE_NAME = 'asistencia-shell-v10';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -8,12 +8,12 @@ const APP_SHELL = [
   '/qr.js',
   '/pwa.js',
   '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  '/icons/dgeti-app-192.png',
+  '/icons/dgeti-app-512.png',
   '/icons/logo.svg',
   '/icons/dgeti-logo.png',
-  '/icons/icon-maskable-192.png',
-  '/icons/icon-maskable-512.png'
+  '/icons/dgeti-maskable-192.png',
+  '/icons/dgeti-maskable-512.png'
 ];
 
 self.addEventListener('install', event => {
@@ -35,8 +35,8 @@ self.addEventListener('push', event => {
   const url = typeof data.url === 'string' && data.url.startsWith('/') ? data.url : '/';
   event.waitUntil(self.registration.showNotification(data.title ?? 'Asistencia', {
     body: data.body ?? 'Tienes un mensaje nuevo.',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    icon: '/icons/dgeti-app-192.png',
+    badge: '/icons/dgeti-app-192.png',
     data: { url },
     tag: 'asistencia-' + String(data.id ?? Date.now())
   }));
@@ -75,3 +75,4 @@ self.addEventListener('fetch', event => {
     }).catch(() => caches.match(request))
   );
 });
+

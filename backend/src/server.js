@@ -225,8 +225,27 @@ const server = http.createServer(async (req, res) => {
         const linked=await storage.read('relaciones_tutores');if(linked.some(x=>x.tutorId===user.personaId&&x.alumnoId===student.id))return json(res,409,{error:'Ya existe una solicitud o vínculo para ese alumno.'});
         const relation={id:randomUUID(),tutorId:user.personaId,alumnoId:student.id,parentesco,activa:false,estado:'pendiente',matricula:student.matricula,alumnoNombreSnapshot:[student.nombres,student.apellidos].filter(Boolean).join(' '),solicitadaPor:user.id,solicitadaEn:new Date().toISOString()};await storage.update('relaciones_tutores',rows=>[...rows,relation]);await audit(user,'solicitar_vinculo_alumno',relation.id);return json(res,202,{mensaje:'Solicitud enviada a Dirección. El expediente aparecerá en tu cuenta cuando aprueben el vínculo.'});
       }
-      if(req.method==='GET'&&url.pathname==='/api/perfil'){
-        if(!['alumno','maestro','tutor'].includes(user.rol))return json(res,403,{error:'El administrador no tiene un perfil académico personal.'});const collection={alumno:'alumnos',maestro:'maestros',tutor:'tutores'}[user.rol],profile=(await storage.read(collection)).find(x=>x.id===user.personaId);return profile?json(res,200,profile):json(res,404,{error:'No existe una ficha asociada a esta cuenta.'});
+      if((req.method==='GET'||req.method==='PATCH')&&url.pathname==='/api/perfil'){
+        if(!['alumno','maestro','tutor'].includes(user.rol))return json(res,403,{error:'El administrador no tiene un perfil académico personal.'});
+        const collection={alumno:'alumnos',maestro:'maestros',tutor:'tutores'}[user.rol];
+        let profile=(await storage.read(collection)).find(x=>x.id===user.personaId);
+        if(!profile)return json(res,404,{error:'No existe una ficha asociada a esta cuenta.'});
+        if(req.method==='PATCH'){
+          if(user.rol!=='alumno')return json(res,403,{error:'Solo el alumno puede completar sus datos de contacto.'});
+          const input=await body(req),allowed=['telefono','correoContacto'];
+          if(Object.keys(input).some(key=>!allowed.includes(key)))return json(res,400,{error:'Solo puedes actualizar teléfono y correo de contacto.'});
+          const telefono=String(input.telefono??'').trim(),correoContacto=String(input.correoContacto??'').trim().toLowerCase();
+          if(telefono.length>30|| (telefono&&!/^\+?[0-9 ()-]{7,30}$/.test(telefono)))return json(res,400,{error:'Escribe un teléfono válido de hasta 30 caracteres.'});
+          if(correoContacto.length>254||(correoContacto&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoContacto)))return json(res,400,{error:'Escribe un correo de contacto válido.'});
+          const updated=await storage.update('alumnos',rows=>rows.map(row=>row.id===user.personaId?{...row,telefono,correoContacto,actualizadoEn:new Date().toISOString()}:row));
+          profile=updated.find(x=>x.id===user.personaId);await audit(user,'completar_perfil_alumno',user.personaId);
+        }
+        if(user.rol==='alumno'){
+          const [enrollments,groups,areas]=await Promise.all([storage.read('inscripciones'),storage.read('grupos'),storage.read('especialidades')]);
+          const enrollment=enrollments.find(x=>x.alumnoId===profile.id&&x.estado==='activa'),group=groups.find(x=>x.id===enrollment?.grupoId),area=areas.find(x=>x.id===(profile.especialidadId??group?.especialidadId??user.especialidadId));
+          profile={...profile,correoCuenta:user.email,especialidadNombre:area?.nombre??profile.especialidad??'',grupoNombre:group?.nombre??'',semestre:group?.semestre??'',ciclo:enrollment?.ciclo??group?.ciclo??''};
+        }
+        return json(res,200,profile);
       }
       const exportMatch=url.pathname.match(/^\/api\/exportar\/([a-z_]+)\.csv$/);
       if(req.method==='GET'&&exportMatch){
