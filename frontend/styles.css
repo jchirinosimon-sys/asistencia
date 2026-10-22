@@ -2,20 +2,28 @@
 .signup-link{width:100%;margin-top:14px}
 .topbar-actions{display:flex;align-items:center;gap:10px}.install-app{padding:9px 13px;border-radius:9px;font-size:12px;white-space:nowrap;box-shadow:none}.install-app:hover{box-shadow:0 4px 12px #135a4730}
 .brand-mark{object-fit:cover;display:block;overflow:hidden}
-.app-splash{position:fixed;inset:0;z-index:9999;display:none;place-content:center;justify-items:center;gap:11px;background:radial-gradient(circle at 50% 38%,#1c5a4a 0,#103b32 52%,#0a2823 100%);color:#f7fbf8;opacity:1}
-.app-splash.is-active{display:grid;animation:splash-reveal .45s ease-out both}
-.splash-brand{position:relative;width:104px;height:104px;animation:splash-float 1.8s ease-in-out infinite}
-.splash-brand::after{content:"";position:absolute;inset:-12px;border:1px solid #d8eee238;border-radius:34px;animation:splash-ring 1.8s ease-out infinite}
+.app-splash{position:fixed;inset:0;z-index:9999;display:none;place-content:center;justify-items:center;gap:12px;overflow:hidden;background:linear-gradient(125deg,#092b25 0%,#11644f 48%,#d5a23c 100%);background-size:260% 260%;background-position:0% 50%;color:#f7fbf8;opacity:1}
+.app-splash::before{content:"";position:absolute;width:min(88vw,500px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#d9ffe36b 0%,#35b88750 34%,transparent 70%);filter:blur(2px);opacity:0;transform:scale(.55);animation:splash-orbit 2.5s ease-out both}
+.app-splash>*{position:relative;z-index:1}
+.app-splash.is-active{display:grid;animation:splash-reveal .4s ease-out both,splash-background-shift 2.5s cubic-bezier(.2,.7,.2,1) both}
+.splash-brand{position:relative;width:104px;height:104px;opacity:0;transform:translateY(24px) scale(.76);animation:splash-mark-arrive .75s .08s cubic-bezier(.2,.8,.2,1) both}
+.splash-brand::after{content:"";position:absolute;inset:-12px;border:1px solid #d8eee278;border-radius:34px;animation:splash-ring 1.45s .25s ease-out infinite}
 .splash-brand img{width:100%;height:100%;border-radius:27px;box-shadow:0 15px 42px #061d18a0}
-.app-splash>strong{font:800 25px 'Segoe UI',sans-serif;letter-spacing:-.04em;margin-top:8px}
-.splash-caption{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#b8d8c8}
-.app-splash.is-leaving{pointer-events:none;animation:splash-leave .45s ease-in both}
+.splash-title{display:flex;gap:.005em;font:800 29px 'Segoe UI',sans-serif;letter-spacing:-.045em;margin-top:7px}
+.splash-title span{display:inline-block;opacity:0;transform:translate3d(0,-105vh,0) rotate(-18deg);animation:splash-letter-drop .68s cubic-bezier(.18,.82,.25,1.22) both}
+.splash-title span:nth-child(1){animation-delay:.18s}.splash-title span:nth-child(2){animation-delay:.28s}.splash-title span:nth-child(3){animation-delay:.38s}.splash-title span:nth-child(4){animation-delay:.48s}.splash-title span:nth-child(5){animation-delay:.58s}.splash-title span:nth-child(6){animation-delay:.68s}.splash-title span:nth-child(7){animation-delay:.78s}.splash-title span:nth-child(8){animation-delay:.88s}.splash-title span:nth-child(9){animation-delay:.98s}.splash-title span:nth-child(10){animation-delay:1.08s}
+.splash-caption{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#e6f5dc;opacity:0;transform:translateY(8px);animation:splash-caption-arrive .55s 1.45s ease-out both}
+.app-splash.is-leaving{pointer-events:none;animation:splash-leave .58s ease-in both}
 .camera-preview{display:block;max-height:min(58vh,440px);object-fit:cover;aspect-ratio:4/3;transform:scaleX(1)}
 @keyframes splash-reveal{from{opacity:0}to{opacity:1}}
+@keyframes splash-background-shift{0%{background-position:0% 50%}100%{background-position:100% 50%}}
 @keyframes splash-leave{to{opacity:0;visibility:hidden}}
-@keyframes splash-float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-8px) scale(1.035)}}
-@keyframes splash-ring{0%{transform:scale(.86);opacity:0}35%{opacity:.8}100%{transform:scale(1.12);opacity:0}}
-@media(prefers-reduced-motion:reduce){.app-splash.is-active,.app-splash.is-leaving,.splash-brand,.splash-brand::after{animation-duration:.01ms;animation-iteration-count:1}}
+@keyframes splash-mark-arrive{to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes splash-letter-drop{0%{opacity:0;transform:translate3d(0,-105vh,0) rotate(-18deg)}72%{opacity:1;transform:translate3d(0,7px,0) rotate(3deg)}100%{opacity:1;transform:translate3d(0,0,0) rotate(0)}}
+@keyframes splash-caption-arrive{to{opacity:1;transform:translateY(0)}}
+@keyframes splash-orbit{0%{opacity:0;transform:scale(.55)}28%{opacity:.9}78%{opacity:.45;transform:scale(1.08)}100%{opacity:0;transform:scale(1.2)}}
+@keyframes splash-ring{0%{transform:scale(.82);opacity:0}35%{opacity:.9}100%{transform:scale(1.2);opacity:0}}
+@media(prefers-reduced-motion:reduce){.app-splash.is-active,.app-splash.is-leaving,.app-splash::before,.splash-brand,.splash-brand::after,.splash-title span,.splash-caption{animation-duration:.01ms!important;animation-delay:0ms!important;animation-iteration-count:1!important}}
 .qr-notice{position:fixed;z-index:10000;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));width:min(92vw,460px);padding:14px 18px;border-radius:14px;background:#103b32;color:#fff;box-shadow:0 12px 34px #102a2360;font-size:14px;font-weight:600;text-align:center;opacity:0;visibility:hidden;transform:translate(-50%,18px);transition:opacity .22s ease,transform .22s ease,visibility .22s}
 .qr-notice.visible{opacity:1;visibility:visible;transform:translate(-50%,0)}
 .qr-notice.error{background:#8d3028}
