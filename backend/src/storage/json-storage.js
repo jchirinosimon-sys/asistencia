@@ -8,7 +8,7 @@ export const COLLECTIONS = [
   'calendario_escolar', 'jornadas', 'qr_diarios', 'asistencias', 'faltas',
   'retardos', 'listas_asistencia', 'justificaciones', 'notificaciones', 'mensajes',
   'periodos_evaluacion', 'calificaciones', 'boletas', 'avisos_escolares',
-  'configuracion', 'auditoria', 'solicitudes_cuenta', 'metadata', 'operaciones'
+  'configuracion', 'auditoria', 'solicitudes_cuenta', 'credenciales_passkey', 'suscripciones_push', 'metadata', 'operaciones'
 ];
 
 export class JsonStorage {
@@ -132,3 +132,4 @@ export class JsonStorage {
     const patches=await Promise.all(COLLECTIONS.map(async collection=>{const desired=records[collection],keep=new Set(desired.map(x=>x.id)),current=await this.read(collection);return{collection,upsert:desired,removeIds:current.filter(x=>!keep.has(x.id)).map(x=>x.id)};}));await this.transact(patches);return safetyCopy;
   }
 }
+

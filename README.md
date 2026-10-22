@@ -10,12 +10,14 @@ La aplicación incluye pruebas de almacenamiento, autenticación y flujos HTTP. 
 
 ## Tecnologías y carpetas
 
-- Node.js 20+ y el driver oficial mongodb para Node.js.
+- Node.js 22+; driver oficial MongoDB, verificación WebAuthn y notificaciones Web Push.
 - `frontend/`: interfaz HTML, CSS y JavaScript; `qr.js` genera el código QR localmente.
 - `backend/src/server.js`: servidor/API, autenticación, permisos, automatización y tareas programadas.
 - `backend/src/storage/json-storage.js`: almacenamiento JSON para desarrollo local.
 - `backend/src/storage/mongo-storage.js`: almacenamiento MongoDB con documentos individuales, transacciones, índices por ID y respaldos compatibles.
 - `backend/src/storage/create-storage.js`: selecciona MongoDB cuando se define MONGODB_URI; localmente conserva JSON si no se configura.
+- `backend/src/passkeys.js`: verifica credenciales de dispositivo y aserciones WebAuthn sin recibir imágenes biométricas.
+- `backend/src/push.js`: entrega avisos Web Push a los dispositivos que el usuario autorizó.
 - `backend/data/`: archivos privados JSON (creados al inicializar, excluidos de Git).
 - `backups/`: snapshots privados con manifest SHA-256 y retención.
 - `tests/`: pruebas unitarias y prueba de integración del servidor.
@@ -98,10 +100,10 @@ El modo JSON reescribe colecciones completas y está pensado para desarrollo loc
 
 La aplicación utiliza la misma interfaz de almacenamiento con JSON local o MongoDB Atlas. Cuando existe MONGODB_URI, el backend usa MongoDB; el navegador nunca recibe la URI ni se conecta directamente.
 
-1. En Atlas crea un usuario de base de datos dedicado a la aplicación. Dale readWrite únicamente sobre la base asistencia; no uses el rol de escritura para todas las bases.
+1. Cambia la contraseña que quedó expuesta en la captura y crea/usa un usuario de base de datos dedicado a la aplicación. Dale readWrite únicamente sobre la base asistencia; no uses el rol de escritura para todas las bases.
 2. En Atlas → Network Access autoriza las direcciones de salida del servicio de Render. Para desarrollo local agrega también la IP pública de tu computadora. No abras el acceso a cualquier dirección.
 3. En Atlas → Connect → Drivers copia la URI de Node.js. Usa una contraseña nueva, larga y distinta de la contraseña de tu cuenta de Atlas. Codifica los caracteres especiales de la contraseña para la URI.
-4. En Render → servicio web → Environment agrega STORAGE_DRIVER=mongo, MONGODB_URI con la URI completa y MONGODB_DB=asistencia. Mantén SESSION_SECRET y las demás variables actuales. No guardes la URI en frontend/, GitHub ni en mensajes.
+4. En Render → servicio web → Environment agrega STORAGE_DRIVER=mongo, MONGODB_URI con la URI completa, MONGODB_DB=asistencia y WEB_ORIGIN con el origen HTTPS exacto, por ejemplo `https://tu-servicio.onrender.com` (sin ruta). Mantén SESSION_SECRET y las demás variables actuales. No guardes la URI en frontend/, GitHub ni en mensajes.
 5. Después del despliegue, revisa los logs: el servidor verifica la conexión con ping y crea las colecciones e índices requeridos. Si la conexión falla, comprueba la lista IP de Atlas, la URI y el usuario de base de datos.
 
 Para usar Atlas en desarrollo local, agrega las mismas variables en .env; el archivo está excluido de Git. Para regresar a JSON local, quita MONGODB_URI o define STORAGE_DRIVER=json.
@@ -111,6 +113,12 @@ Para usar Atlas en desarrollo local, agrega las mismas variables en .env; el arc
 La migración no se ejecuta automáticamente. Primero respalda la carpeta backend/data y confirma que contiene los registros que quieres conservar. Configura la URI de Atlas en .env y ejecuta npm run migrate:json -- --confirm. El importador solo escribe en colecciones vacías y permite volver a ejecutar una importación ya coincidente; si encuentra datos distintos en MongoDB, se detiene para evitar sobrescribirlos. Para la base actual de Render, prepara una exportación desde el entorno que tenga acceso a esos datos; los JSON locales pueden no contener los registros de producción.
 
 Los backups de MongoDB se exportan al formato JSON privado existente y se pueden verificar/restaurar desde el panel. En Render, la carpeta de backups local puede ser efímera; conserva una copia externa y prueba la restauración antes de depender de ella.
+
+## Verificación del dispositivo y notificaciones
+
+Al solicitar una cuenta, la persona registra una passkey en su propio teléfono. Al confirmar una entrada, el navegador solicitará la verificación local que admita el dispositivo, como Face ID, huella o el PIN/bloqueo seguro. La app no usa ni almacena fotos del rostro o plantillas biométricas; guarda la clave pública de una credencial criptográfica. Una passkey identifica el dispositivo y su desbloqueo local, no es reconocimiento facial escolar ni prueba absoluta contra una persona que comparta el dispositivo. Cuentas creadas directamente por Dirección deben registrar su passkey desde su propio teléfono antes de poder marcar entradas.
+
+Para notificaciones push, genera un par VAPID una sola vez con `npx web-push generate-vapid-keys`. En Render configura `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` (por ejemplo, `mailto:admin@escuela.local`). No publiques la clave privada. Cada persona debe pulsar **Activar notificaciones** y aceptar el permiso del navegador en cada teléfono. Si no lo activa, el mensaje se guarda en la bandeja interna, pero el navegador no mostrará una notificación fuera de la página. Web Push requiere HTTPS y puede depender de las restricciones de energía/notificaciones del teléfono.
 
 ## Pruebas y pendientes de despliegue
 
