@@ -61,7 +61,7 @@ async function registerCurrentDevice(){
     if(!name){nameField?.reportValidity();throw new Error('Escribe primero tu nombre completo.');}
     if(name.length<2||name.length>120)throw new Error('El nombre debe tener entre 2 y 120 caracteres.');
     if(!email){emailField?.reportValidity();throw new Error('Escribe primero tu correo institucional.');}
-    if(!/^\\S+@\\S+\\.\\S+$/.test(email)){emailField?.reportValidity();throw new Error('Escribe un correo institucional válido.');}
+    if(!/^\S+@\S+\.\S+$/.test(email)){emailField?.reportValidity();throw new Error('Escribe un correo institucional válido.');}
   }
   if(!window.isSecureContext||!navigator.credentials?.create)throw new Error('Face ID, huella o bloqueo de pantalla requiere abrir Asistencia en Chrome con HTTPS.');
   const result=await api('/api/auth/passkey/registration/options',{method:'POST',body:JSON.stringify({email,name})});
