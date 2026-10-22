@@ -8,10 +8,11 @@
   if (installed()) {
     const splash = document.querySelector('#app-splash');
     splash?.classList.add('is-active');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.setTimeout(() => {
       splash?.classList.add('is-leaving');
-      window.setTimeout(() => splash?.remove(), 500);
-    }, 850);
+      window.setTimeout(() => splash?.remove(), reduceMotion ? 80 : 650);
+    }, reduceMotion ? 120 : 2450);
   }
 
   if (installButton && !installed()) {
