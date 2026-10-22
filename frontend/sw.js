@@ -1,4 +1,4 @@
-const CACHE_NAME = 'asistencia-shell-v6';
+const CACHE_NAME = 'asistencia-shell-v9';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -10,7 +10,10 @@ const APP_SHELL = [
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  '/icons/logo.svg'
+  '/icons/logo.svg',
+  '/icons/dgeti-logo.png',
+  '/icons/icon-maskable-192.png',
+  '/icons/icon-maskable-512.png'
 ];
 
 self.addEventListener('install', event => {
@@ -35,7 +38,7 @@ self.addEventListener('push', event => {
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     data: { url },
-    tag: 'asistencia-mensaje'
+    tag: 'asistencia-' + String(data.id ?? Date.now())
   }));
 });
 

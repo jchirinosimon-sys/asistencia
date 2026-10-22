@@ -15,16 +15,16 @@ export async function sendPushNotifications(storage, userIds, message, env = pro
     return report;
   }
 
-  const tipo = message.tipo === 'aviso' ? 'aviso' : message.tipo === 'prueba' ? 'prueba' : 'mensaje';
+  const tipo = message.tipo === 'aviso' ? 'aviso' : message.tipo === 'prueba' ? 'prueba' : message.tipo === 'llegada' ? 'llegada' : message.tipo === 'falta' ? 'falta' : 'mensaje';
   const payload = JSON.stringify({
-    title: tipo === 'aviso' ? 'Asistencia · Aviso escolar' : tipo === 'prueba' ? 'Asistencia · Prueba' : 'Asistencia · Nuevo mensaje',
-    body: message.asunto,
+    title: tipo === 'aviso' ? 'Asistencia · Aviso escolar' : tipo === 'prueba' ? 'Asistencia · Prueba' : tipo === 'llegada' ? 'Asistencia · Llegada a la escuela' : tipo === 'falta' ? 'Asistencia · Falta registrada' : 'Asistencia · Nuevo mensaje',
+    body: message.detalle ?? message.asunto,
     url: tipo === 'aviso' ? '/?aviso=' + encodeURIComponent(message.id) : '/?mensaje=' + encodeURIComponent(message.id)
   });
 
   await Promise.all(subscriptions.map(async item => {
     try {
-      await webPush.sendNotification(item.subscription, payload, { TTL: 86400 });
+      await webPush.sendNotification(item.subscription, payload, { TTL: 2419200, urgency: 'high' });
       report.enviadas++;
     } catch (error) {
       if (error.statusCode === 404 || error.statusCode === 410) {

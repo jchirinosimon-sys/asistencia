@@ -41,7 +41,7 @@ function validateFields(collection, record){
 async function authorizedRecords(collection,user,selectedStudentId=null){
   const records=await storage.read(collection);
   if(user.rol==='direccion')return collection==='usuarios'?records.map(({passwordHash,...safe})=>safe):records;
-  if(collection==='avisos_escolares')return records.filter(x=>x.publicado===true);
+  if(collection==='avisos_escolares')return records.filter(x=>x.publicado===true&&(!x.audiencia||x.audiencia==='usuarios'||x.audiencia===user.rol));
   if(user.rol==='alumno'){
     if(collection==='mensajes')return records.filter(x=>x.destinatarioUsuarioId===user.id);
     if(collection==='boletas')return records.filter(x=>x.alumnoId===user.personaId&&x.publicada===true);
@@ -107,8 +107,22 @@ async function generateDailyMessages(date=todayAt()){
 }
 let schedulerBusy=false;
 async function notifyPublishedAnnouncement(announcement) {
-  const recipients=(await storage.read('usuarios')).filter(account=>account.activo&&['alumno','maestro','tutor'].includes(account.rol));
+  const audience=announcement.audiencia??'usuarios';const recipients=(await storage.read('usuarios')).filter(account=>account.activo&&(audience==='usuarios'||account.rol===audience));
   return sendPushNotifications(storage,recipients.map(account=>account.id),{id:announcement.id,asunto:announcement.titulo,tipo:'aviso'},env);
+}
+async function notifyTutorsOfStudentEvent(studentId,event){
+  try{
+    const [links,students,accounts,subjects]=await Promise.all(['relaciones_tutores','alumnos','usuarios','materias'].map(name=>storage.read(name)));
+    const student=students.find(item=>item.id===studentId);if(!student)return;
+    const tutorIds=new Set(links.filter(link=>link.alumnoId===studentId&&link.activa===true).map(link=>link.tutorId));if(!tutorIds.size)return;
+    const tutors=accounts.filter(account=>account.activo&&account.rol==='tutor'&&tutorIds.has(account.personaId));if(!tutors.length)return;
+    const name=[student.nombres,student.apellidos].filter(Boolean).join(' ')||student.nombre||'El alumno';const when=new Date(event.at??Date.now()).toLocaleString('es-GT',{timeZone:'America/Guatemala',dateStyle:'short',timeStyle:'short'});
+    const title=event.tipo==='llegada'?'Llegada a la escuela':'Falta registrada';const materia=subjects.find(item=>item.id===event.materiaNombre)?.nombre??event.materiaNombre??'una clase';
+    const content=event.tipo==='llegada'?name+' registró su entrada a la escuela el '+when+'.':name+' tiene una falta registrada en '+materia+' el '+when+'.';
+    let created=[];
+    await storage.update('mensajes',rows=>{created=tutors.filter(account=>!rows.some(row=>row.destinatarioUsuarioId===account.id&&row.eventoOrigenId===event.id)).map(account=>({id:randomUUID(),destinatarioUsuarioId:account.id,destinatarioNombre:account.nombre,tutorId:account.personaId,alumnoId:student.id,tipoEvento:event.tipo,eventoOrigenId:event.id,alcance:'evento_escolar',asunto:title,contenido,creadoEn:new Date().toISOString(),leidoEn:null}));return created.length?[...rows,...created]:rows;});
+    await Promise.all(created.map(async message=>{try{await sendPushNotifications(storage,[message.destinatarioUsuarioId],{id:message.id,asunto:title,detalle:content,tipo:event.tipo},env)}catch(error){console.error('No se pudo enviar el aviso al tutor:',error.message)}}));
+  }catch(error){console.error('No se pudo guardar el aviso del tutor:',error.message)}
 }
 async function runScheduledJobs(){if(schedulerBusy)return;schedulerBusy=true;try{
   const settings=(await storage.read('configuracion'))[0]??{},zone=settings.zonaHoraria??'America/Guatemala',today=todayAt(zone),summaryAt=settings.horaResumenDiario??'17:00';
@@ -244,8 +258,8 @@ const server = http.createServer(async (req, res) => {
       const editMatch=url.pathname.match(/^\/api\/([^/]+)\/([^/]+)$/);
       if(req.method==='PATCH'&&editMatch&&user.rol==='direccion'){
         const [,collection,id]=editMatch;if(collection!=='usuarios'&&!createCollections.includes(collection))return json(res,403,{error:'Esta categoría no admite edición desde esta ruta.'});const old=(await storage.read(collection)).find(x=>x.id===id);if(!old)return json(res,404,{error:'Registro no encontrado.'});const input=await body(req);
-        const fields={usuarios:['nombre','email'],alumnos:['nombres','apellidos','matricula','fechaNacimiento','activo'],maestros:['nombres','apellidos','numeroEmpleado','correo','activo'],tutores:['nombres','apellidos','correo','telefono','activo'],relaciones_tutores:['tutorId','alumnoId','parentesco','activa'],grupos:['nombre','ciclo','semestreId','especialidadId','semestre','activo'],especialidades:['nombre','clave','activo'],semestres:['nombre','orden','activo'],materias:['nombre','clave','activo'],inscripciones:['alumnoId','grupoId','ciclo','estado'],avisos_escolares:['titulo','contenido','publicado','visibleDesde','visibleHasta'],horarios:['diaSemana','horaInicio','horaFin','materiaId','maestroId','grupoId','aula','desde','hasta','activo'],calendario_escolar:['fecha','tipo','descripcion','jornadas','activo'],periodos_evaluacion:['nombre','iniciaEn','terminaEn','estado','escalaMin','escalaMax']}[collection]??[];
-        if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(key=>!fields.includes(key)))return json(res,400,{error:'Los campos de actualización no son válidos.'});const candidate={...old,...input,actualizadoEn:new Date().toISOString()};if(collection==='usuarios'&&typeof candidate.email==='string')candidate.email=candidate.email.trim().toLowerCase();validateFields(collection,candidate);
+        const fields={usuarios:['nombre','email'],alumnos:['nombres','apellidos','matricula','fechaNacimiento','activo'],maestros:['nombres','apellidos','numeroEmpleado','correo','activo'],tutores:['nombres','apellidos','correo','telefono','activo'],relaciones_tutores:['tutorId','alumnoId','parentesco','activa'],grupos:['nombre','ciclo','semestreId','especialidadId','semestre','activo'],especialidades:['nombre','clave','activo'],semestres:['nombre','orden','activo'],materias:['nombre','clave','activo'],inscripciones:['alumnoId','grupoId','ciclo','estado'],avisos_escolares:['titulo','contenido','publicado','visibleDesde','visibleHasta','audiencia'],horarios:['diaSemana','horaInicio','horaFin','materiaId','maestroId','grupoId','aula','desde','hasta','activo'],calendario_escolar:['fecha','tipo','descripcion','jornadas','activo'],periodos_evaluacion:['nombre','iniciaEn','terminaEn','estado','escalaMin','escalaMax']}[collection]??[];
+        if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(key=>!fields.includes(key)))return json(res,400,{error:'Los campos de actualización no son válidos.'});const candidate={...old,...input,actualizadoEn:new Date().toISOString()};if(collection==='usuarios'&&typeof candidate.email==='string')candidate.email=candidate.email.trim().toLowerCase();if(collection==='avisos_escolares'){candidate.audiencia=candidate.audiencia??'usuarios';if(!['usuarios','alumno','tutor','maestro'].includes(candidate.audiencia))return json(res,400,{error:'Selecciona un destinatario válido para el aviso.'});}validateFields(collection,candidate);
         if(collection==='relaciones_tutores'&&(!(await storage.read('tutores')).some(x=>x.id===candidate.tutorId)||!(await storage.read('alumnos')).some(x=>x.id===candidate.alumnoId)))return json(res,400,{error:'El tutor y alumno deben existir.'});
         if(collection==='inscripciones'&&(!(await storage.read('alumnos')).some(x=>x.id===candidate.alumnoId)||!(await storage.read('grupos')).some(x=>x.id===candidate.grupoId)))return json(res,400,{error:'El alumno y grupo deben existir.'});
         if(collection==='grupos'&&candidate.semestreId&&!(await storage.read('semestres')).some(x=>x.id===candidate.semestreId))return json(res,400,{error:'El semestre indicado no existe.'});
@@ -314,15 +328,13 @@ const server = http.createServer(async (req, res) => {
       if(req.method==='POST'&&url.pathname==='/api/mensajes'&&user.rol==='direccion'){
         const input=await body(req),asunto=typeof input.asunto==='string'?input.asunto.trim():'',contenido=typeof input.contenido==='string'?input.contenido.trim():'',destinatario=typeof input.destinatario==='string'?input.destinatario.trim():'';
         if(asunto.length<2||asunto.length>160||contenido.length<2||contenido.length>5000)return json(res,400,{error:'Escribe un asunto y un mensaje de 2 a 5000 caracteres.'});
-        const accounts=(await storage.read('usuarios')).filter(x=>x.activo);let recipients;
-        if(destinatario==='todos_alumnos')recipients=accounts.filter(x=>x.rol==='alumno');
-        else recipients=accounts.filter(x=>x.id===destinatario);
-        if(!recipients.length)return json(res,404,{error:destinatario==='todos_alumnos'?'No hay cuentas activas de alumnos para recibir el mensaje.':'Selecciona un usuario activo.'});
-        const createdAt=new Date().toISOString(),broadcast=destinatario==='todos_alumnos',messages=recipients.map(target=>({id:randomUUID(),destinatarioUsuarioId:target.id,destinatarioNombre:target.nombre,...(target.rol==='alumno'&&target.personaId?{alumnoId:target.personaId}:{}),alcance:broadcast?'alumnos':'individual',asunto,contenido,creadoPor:user.id,creadoEn:createdAt,leidoEn:null}));
+        const accounts=(await storage.read('usuarios')).filter(x=>x.activo);let recipients;const groups={todos_usuarios:accounts,todos_alumnos:accounts.filter(x=>x.rol==='alumno'),todos_tutores:accounts.filter(x=>x.rol==='tutor'),todos_maestros:accounts.filter(x=>x.rol==='maestro')};if(Object.hasOwn(groups,destinatario))recipients=groups[destinatario];else recipients=accounts.filter(x=>x.id===destinatario);
+        if(!recipients.length)return json(res,404,{error:groups[destinatario]?'No hay cuentas activas de ese grupo para recibir el mensaje.':'Selecciona un usuario activo.'});
+        const createdAt=new Date().toISOString(),broadcast=Object.hasOwn(groups,destinatario),messages=recipients.map(target=>({id:randomUUID(),destinatarioUsuarioId:target.id,destinatarioNombre:target.nombre,...(target.rol==='alumno'&&target.personaId?{alumnoId:target.personaId}:{}),alcance:broadcast?destinatario.slice(6):'individual',asunto,contenido,creadoPor:user.id,creadoEn:createdAt,leidoEn:null}));
         await storage.update('mensajes',rows=>[...rows,...messages]);
         const notificacionesPush=await sendPushNotifications(storage,recipients.map(target=>target.id),{id:messages[0].id,asunto},env);
-        await audit(user,'enviar_mensaje',broadcast?'todos_alumnos:'+messages.length:recipients[0].id);
-        return json(res,201,{mensaje:broadcast?'Mensaje enviado a '+messages.length+' alumno(s).':'Mensaje enviado.',cantidad:messages.length,notificacionesPush});
+        await audit(user,'enviar_mensaje',broadcast?destinatario+':'+messages.length:recipients[0].id);
+        return json(res,201,{mensaje:broadcast?'Mensaje enviado a '+messages.length+' usuario(s) del grupo seleccionado.':'Mensaje enviado.',cantidad:messages.length,notificacionesPush});
       }
       if(req.method==='POST'&&url.pathname==='/api/qr_diarios/renovar'&&user.rol==='direccion'){
         const input=await body(req);const jornada=(await storage.read('jornadas')).find(x=>x.id===input.jornadaId&&x.estado==='habilitada');if(!jornada)return json(res,404,{error:'No existe una jornada habilitada para ese QR.'});
@@ -351,7 +363,7 @@ const server = http.createServer(async (req, res) => {
         const localTime=timeAt(new Date(),jornada.zonaHoraria);if(localTime<jornada.abreEn||localTime>jornada.cierraEn)return json(res,409,{error:`El código QR sí es válido, pero el registro está cerrado. La jornada permite entradas de ${jornada.abreEn} a ${jornada.cierraEn} (${jornada.zonaHoraria}); ahora son las ${localTime}. Dirección debe habilitar una jornada con el horario correcto.`});
         const student=(await storage.read('alumnos')).find(x=>x.id===user.personaId&&x.activo!==false);if(!student)return json(res,403,{error:'La cuenta no está vinculada con un alumno activo.'});
         const attendance={id:randomUUID(),alumnoId:student.id,nombreSnapshot:[student.nombres,student.apellidos].filter(Boolean).join(' '),fecha:jornada.fecha,jornadaId:jornada.id,horaServidor:new Date().toISOString(),metodo:'qr',estado:'validada',versionQrId:version.versionId};
-        await storage.update('asistencias',rows=>{if(rows.some(x=>x.alumnoId===student.id&&x.jornadaId===jornada.id))throw fail(409,'Ya registraste tu entrada para esta jornada.');return [...rows,attendance];});await audit(user,'registrar_entrada',attendance.id);return json(res,201,{mensaje:'Entrada registrada correctamente.',asistencia:attendance});
+        await storage.update('asistencias',rows=>{if(rows.some(x=>x.alumnoId===student.id&&x.jornadaId===jornada.id))throw fail(409,'Ya registraste tu entrada para esta jornada.');return [...rows,attendance];});await notifyTutorsOfStudentEvent(student.id,{id:attendance.id,tipo:'llegada',at:attendance.horaServidor});await audit(user,'registrar_entrada',attendance.id);return json(res,201,{mensaje:'Entrada registrada correctamente.',asistencia:attendance});
       }
       if(req.method==='POST'&&url.pathname==='/api/listas_asistencia'&&user.rol==='maestro'){
         const input=await body(req),schedule=(await storage.read('horarios')).find(x=>x.id===input.horarioId&&x.activo!==false&&x.maestroId===user.personaId);if(!schedule)return json(res,403,{error:'La clase no pertenece a tu horario.'});
@@ -369,7 +381,7 @@ const server = http.createServer(async (req, res) => {
         const input=await body(req),states=new Map((input.alumnos??[]).map(x=>[x.alumnoId,x.estado]));const allowedStates=new Set(['presente','retardo','ausente']);if(list.alumnos.some(x=>!allowedStates.has(states.get(x.alumnoId))))return json(res,400,{error:'Confirma el estado de cada alumno antes de cerrar la lista.'});
         const closed={...list,estado:'cerrada',alumnos:list.alumnos.map(x=>({...x,estado:states.get(x.alumnoId)})),cerradaEn:new Date().toISOString(),cerradaPor:user.id};const snapshots=[];
         for(const student of closed.alumnos){if(student.estado==='ausente')snapshots.push({collection:'faltas',record:{id:`falta_${list.id}_${student.alumnoId}`,alumnoId:student.alumnoId,nombreSnapshot:student.nombreSnapshot,fecha:list.fecha,grupoId:list.grupoId,materiaId:list.materiaId,sesionId:list.sesionId,maestroId:list.maestroId,estado:'confirmada',listaId:list.id,creadoEn:new Date().toISOString()}});if(student.estado==='retardo')snapshots.push({collection:'retardos',record:{id:`retardo_${list.id}_${student.alumnoId}`,alumnoId:student.alumnoId,nombreSnapshot:student.nombreSnapshot,fecha:list.fecha,grupoId:list.grupoId,materiaId:list.materiaId,sesionId:list.sesionId,maestroId:list.maestroId,estado:'registrado',listaId:list.id,creadoEn:new Date().toISOString()}});}
-        await storage.backup(backupDir);const patches=[{collection:'listas_asistencia',upsert:[closed]},...['faltas','retardos'].map(collection=>({collection,upsert:snapshots.filter(x=>x.collection===collection).map(x=>x.record)}))];await storage.transact(async read=>{const latest=(await read('listas_asistencia')).find(x=>x.id===list.id);if(!latest||latest.estado!=='abierta')throw fail(409,'La lista ya se cerró en otra solicitud.');return patches});await audit(user,'cerrar_lista',list.id);return json(res,200,closed);
+        await storage.backup(backupDir);const patches=[{collection:'listas_asistencia',upsert:[closed]},...['faltas','retardos'].map(collection=>({collection,upsert:snapshots.filter(x=>x.collection===collection).map(x=>x.record)}))];await storage.transact(async read=>{const latest=(await read('listas_asistencia')).find(x=>x.id===list.id);if(!latest||latest.estado!=='abierta')throw fail(409,'La lista ya se cerró en otra solicitud.');return patches});for(const student of closed.alumnos.filter(item=>item.estado==='ausente'))await notifyTutorsOfStudentEvent(student.alumnoId,{id:`falta_${list.id}_${student.alumnoId}`,tipo:'falta',at:new Date().toISOString(),materiaNombre:list.materiaNombre??list.materiaSnapshot??list.materiaId});await audit(user,'cerrar_lista',list.id);return json(res,200,closed);
       }
       if(req.method==='POST'&&url.pathname==='/api/calificaciones'&&user.rol==='maestro'){
         const input=await body(req),student=(await storage.read('alumnos')).find(x=>x.id===input.alumnoId),period=(await storage.read('periodos_evaluacion')).find(x=>x.id===input.periodoId&&x.estado!=='cerrado');if(!student||!period)return json(res,400,{error:'Alumno o periodo de evaluación inválido.'});
@@ -432,6 +444,7 @@ const server = http.createServer(async (req, res) => {
         const collection = match[1];
         const record = await body(req);
         if (!record || typeof record !== 'object' || Array.isArray(record)) return json(res, 400, { error: 'Registro inválido.' });
+        if(collection==='avisos_escolares'){record.audiencia=record.audiencia??'usuarios';if(!['usuarios','alumno','tutor','maestro'].includes(record.audiencia))return json(res,400,{error:'Selecciona un destinatario válido para el aviso.'});}
         validateFields(collection,record);
         if(collection==='grupos'){
           const area=(await storage.read('especialidades')).find(x=>x.id===record.especialidadId&&x.activo!==false);if(!area)return json(res,400,{error:'Selecciona un área activa existente.'});record.semestre=Number(record.semestre);if(!Number.isInteger(record.semestre)||record.semestre<1||record.semestre>6)return json(res,400,{error:'Selecciona un semestre del 1 al 6.'});
@@ -451,7 +464,7 @@ const server = http.createServer(async (req, res) => {
           record.diaSemana=Number(record.diaSemana);
         }
         if(['horarios','periodos_evaluacion'].includes(collection))await storage.backup(backupDir);
-        const saved = { ...record, id: randomUUID(), creadoEn: new Date().toISOString(), actualizadoEn:new Date().toISOString() };
+        const saved = { ...record, ...(collection==='avisos_escolares'?{audiencia:record.audiencia??'usuarios'}:{}), id: randomUUID(), creadoEn: new Date().toISOString(), actualizadoEn:new Date().toISOString() };
         await storage.update(collection, rows => {
           const unique=({alumnos:['matricula'],maestros:['numeroEmpleado'],especialidades:['clave'],materias:['clave']}[collection]??[]);
           if(collection==='especialidades'&&rows.some(row=>normalizeAreaName(row.nombre)===normalizeAreaName(saved.nombre)))throw fail(409,'Ya existe un área con ese nombre, aunque cambien los acentos o las mayúsculas.');
