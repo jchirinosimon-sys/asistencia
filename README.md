@@ -10,13 +10,12 @@ La aplicación incluye pruebas de almacenamiento, autenticación y flujos HTTP. 
 
 ## Tecnologías y carpetas
 
-- Node.js 22+; driver oficial MongoDB, verificación WebAuthn y notificaciones Web Push.
+- Node.js 22+; driver oficial MongoDB y notificaciones Web Push.
 - `frontend/`: interfaz HTML, CSS y JavaScript; `qr.js` genera el código QR localmente.
 - `backend/src/server.js`: servidor/API, autenticación, permisos, automatización y tareas programadas.
 - `backend/src/storage/json-storage.js`: almacenamiento JSON para desarrollo local.
 - `backend/src/storage/mongo-storage.js`: almacenamiento MongoDB con documentos individuales, transacciones, índices por ID y respaldos compatibles.
 - `backend/src/storage/create-storage.js`: selecciona MongoDB cuando se define MONGODB_URI; localmente conserva JSON si no se configura.
-- `backend/src/passkeys.js`: verifica credenciales de dispositivo y aserciones WebAuthn sin recibir imágenes biométricas.
 - `backend/src/push.js`: entrega avisos Web Push a los dispositivos que el usuario autorizó.
 - `backend/data/`: archivos privados JSON (creados al inicializar, excluidos de Git).
 - `backups/`: snapshots privados con manifest SHA-256 y retención.
@@ -114,9 +113,9 @@ La migración no se ejecuta automáticamente. Primero respalda la carpeta backen
 
 Los backups de MongoDB se exportan al formato JSON privado existente y se pueden verificar/restaurar desde el panel. En Render, la carpeta de backups local puede ser efímera; conserva una copia externa y prueba la restauración antes de depender de ella.
 
-## Verificación del dispositivo y notificaciones
+## Acceso y notificaciones
 
-Al solicitar una cuenta, la persona registra una passkey en su propio teléfono. Al confirmar una entrada, el navegador solicitará la verificación local que admita el dispositivo, como Face ID, huella o el PIN/bloqueo seguro. La app no usa ni almacena fotos del rostro o plantillas biométricas; guarda la clave pública de una credencial criptográfica. Una passkey identifica el dispositivo y su desbloqueo local, no es reconocimiento facial escolar ni prueba absoluta contra una persona que comparta el dispositivo. Cuentas creadas directamente por Dirección deben registrar su passkey desde su propio teléfono antes de poder marcar entradas.
+Las cuentas inician sesión con correo y contraseña. El registro de entrada se realiza con el QR o el código temporal de cinco números, sujeto a que exista una jornada habilitada y dentro del horario configurado.
 
 Para notificaciones push, genera un par VAPID una sola vez con `npx web-push generate-vapid-keys`. En Render configura `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` (por ejemplo, `mailto:admin@escuela.local`). No publiques la clave privada. Cada persona debe pulsar **Activar notificaciones** y aceptar el permiso del navegador en cada teléfono. Si no lo activa, el mensaje se guarda en la bandeja interna, pero el navegador no mostrará una notificación fuera de la página. Web Push requiere HTTPS y puede depender de las restricciones de energía/notificaciones del teléfono.
 

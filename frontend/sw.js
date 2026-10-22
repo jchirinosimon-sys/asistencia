@@ -1,4 +1,4 @@
-const CACHE_NAME = 'asistencia-shell-v5';
+const CACHE_NAME = 'asistencia-shell-v4';
 const APP_SHELL = [
   '/',
   '/index.html',

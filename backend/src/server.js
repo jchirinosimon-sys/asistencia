@@ -6,7 +6,6 @@ import { COLLECTIONS } from './storage/json-storage.js';
 import { createStorage } from './storage/create-storage.js';
 import { createSession, readSession, verifyPassword, hashPassword } from './security.js';
 import { sendPushNotifications } from './push.js';
-import { PasskeyService } from './passkeys.js';
 
 const env = process.env;
 const port = Number(env.PORT ?? 3000);
@@ -14,7 +13,6 @@ const secret = env.SESSION_SECRET;
 if (!secret || secret.length < 32) throw new Error('Falta SESSION_SECRET o tiene menos de 32 caracteres. Copia .env.example a .env, configura SESSION_SECRET y vuelve a ejecutar npm start.');
 const root = path.resolve('frontend');
 const storage = await createStorage(env);
-const passkeys = new PasskeyService(env);
 const backupDir=path.resolve(env.BACKUP_DIR??'backups');
 const roles = ['direccion', 'maestro', 'alumno', 'tutor'];
 const loginFailures=new Map();
@@ -120,28 +118,12 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
     if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, { estado: 'disponible' });
-    if(req.method==='POST'&&url.pathname==='/api/auth/passkey/registration/options'){
-      const input=await body(req),existingUser=await currentUser(req),email=existingUser?.email??String(input.email??'').trim().toLowerCase(),name=existingUser?.nombre??String(input.nombre??'').trim();
-      if(!/^\S+@\S+\.\S+$/.test(email)||name.length<2||name.length>120)return json(res,400,{error:'Escribe un nombre y correo válidos antes de registrar el dispositivo.'});
-      const credentials=existingUser?(await storage.read('credenciales_passkey')).filter(item=>item.usuarioId===existingUser.id):[];
-      return json(res,200,await passkeys.registrationOptions({email,name,userId:existingUser?.id,mode:existingUser?'account':'signup'},req,credentials));
-    }
-    if(req.method==='POST'&&url.pathname==='/api/auth/passkey/registration/verify'){
-      const input=await body(req),existingUser=await currentUser(req);
-      const result=await passkeys.verifyRegistration(input.registrationId,input.response,req);
-      if(existingUser){
-        if(!result.saved)return json(res,403,{error:'La verificación no corresponde al registro de esta cuenta.'});
-        await storage.update('credenciales_passkey',rows=>{if(rows.some(item=>item.credentialId===result.saved.credentialId))throw fail(409,'Este dispositivo ya está vinculado a otra cuenta.');return[...rows,result.saved];});
-      }else if(result.saved)return json(res,403,{error:'La verificación no corresponde a una solicitud de cuenta.'});
-      return json(res,201,{mensaje:result.mensaje,registrationId:result.registrationId});
-    }
     if (req.method === 'POST' && url.pathname === '/api/auth/solicitudes') {
       const ip=req.socket.remoteAddress??'local',now=Date.now(),attempts=signupFailures.get(ip);if(attempts&&attempts.until>now&&attempts.count>=5)return json(res,429,{error:'Se alcanzó el límite de solicitudes. Intenta de nuevo más tarde.'});if(!attempts||attempts.until<=now)signupFailures.set(ip,{count:0,until:now+15*60_000});
       const input=await body(req),nombre=typeof input.nombre==='string'?input.nombre.trim():'',email=typeof input.email==='string'?input.email.trim().toLowerCase():'',password=input.password,rolSolicitado=input.rol,matricula=typeof input.matricula==='string'?input.matricula.trim():'';
       if(nombre.length<2||nombre.length>120||!/^\S+@\S+\.\S+$/.test(email)||email.length>254||typeof password!=='string'||password.length<12||password.length>200||!['alumno','maestro','tutor'].includes(rolSolicitado)||(rolSolicitado==='alumno'&&(!matricula||matricula.length>40)))return json(res,400,{error:'Completa nombre, correo, tipo de cuenta, matrícula si eres alumno y una contraseña de 12 caracteres o más.'});
-      const passkeyCredential=passkeys.takeSignupCredential(input.passkeyRegistrationId,email);
       const attemptState=signupFailures.get(ip);signupFailures.set(ip,{...attemptState,count:attemptState.count+1});
-      const request={id:randomUUID(),nombre,email,rolSolicitado,...(rolSolicitado==='alumno'?{matricula}:{}),passkeyCredential,passwordHash:await hashPassword(password),estado:'pendiente',creadoEn:new Date().toISOString()};
+      const request={id:randomUUID(),nombre,email,rolSolicitado,...(rolSolicitado==='alumno'?{matricula}:{}),passwordHash:await hashPassword(password),estado:'pendiente',creadoEn:new Date().toISOString()};
       await storage.update('solicitudes_cuenta',async rows=>{const accounts=await storage.read('usuarios');if(accounts.some(x=>x.email===email)||rows.some(x=>x.email===email&&x.estado==='pendiente'))throw fail(409,'Ya existe una cuenta o solicitud pendiente con ese correo.');return[...rows,request];});
       return json(res,202,{mensaje:rolSolicitado==='alumno'?'Solicitud recibida. Dirección debe aprobarla; la matrícula se usará para encontrar tu expediente.':'Solicitud recibida. Dirección debe aprobar y vincular tu expediente antes de que puedas iniciar sesión.'});
     }
@@ -154,21 +136,15 @@ const server = http.createServer(async (req, res) => {
       if (!user || !(await verifyPassword(input.password, user.passwordHash))) {const state=loginFailures.get(ip);loginFailures.set(ip,{count:state&&state.until>now?state.count+1:1,until:state&&state.until>now?state.until:now+15*60_000});await auditLogin(email,null,'fallido');return json(res, 401, { error: 'Credenciales incorrectas.' });}
       loginFailures.delete(ip);
       await auditLogin(email,user,'correcto');
-      const passkeyConfigured=(await storage.read('credenciales_passkey')).some(item=>item.usuarioId===user.id);
-      return json(res, 200, { token: createSession(user.id, secret), usuario: { id: user.id, nombre: user.nombre, email:user.email, rol: user.rol, passkeyConfigured } });
+      return json(res, 200, { token: createSession(user.id, secret), usuario: { id: user.id, nombre: user.nombre, email:user.email, rol: user.rol } });
     }
     const user = await currentUser(req);
     if (req.method.startsWith('GET') && url.pathname === '/api/auth/me') {
       if (!user) return json(res, 401, { error: 'Inicia sesión.' });
-      const passkeyConfigured=(await storage.read('credenciales_passkey')).some(item=>item.usuarioId===user.id);
-      return json(res, 200, { id: user.id, nombre: user.nombre, email:user.email, rol: user.rol, passkeyConfigured });
+      return json(res, 200, { id: user.id, nombre: user.nombre, email:user.email, rol: user.rol });
     }
     if (url.pathname.startsWith('/api/')) {
       if (!user) return json(res, 401, { error: 'Inicia sesión.' });
-      if(req.method==='POST'&&url.pathname==='/api/asistencias/passkey/options'&&user.rol==='alumno'){
-        const credentials=(await storage.read('credenciales_passkey')).filter(item=>item.usuarioId===user.id);
-        return json(res,200,await passkeys.authenticationOptions(user.id,credentials,req));
-      }
       if(req.method==='GET'&&url.pathname==='/api/solicitudes_cuenta'){
         if(user.rol!=='direccion')return json(res,403,{error:'Solo dirección puede revisar solicitudes.'});
         const requests=(await storage.read('solicitudes_cuenta')).map(({passwordHash,passkeyCredential,...safe})=>safe);return json(res,200,requests);
@@ -180,15 +156,13 @@ const server = http.createServer(async (req, res) => {
         let approvedUser=null,resolvedRequest=null;
         await storage.transact(async read=>{
           const requests=await read('solicitudes_cuenta'),request=requests.find(x=>x.id===accountRequestMatch[1]);if(!request||request.estado!=='pendiente')throw fail(409,'La solicitud no existe o ya fue atendida.');
-          const {passwordHash,passkeyCredential,...requestInfo}=request;
+          const {passwordHash,passkeyCredential:_legacyPasskeyCredential,...requestInfo}=request;
           if(input.decision==='rechazar'){resolvedRequest={...requestInfo,estado:'rechazada',resueltaPor:user.id,resueltaEn:new Date().toISOString()};return[{collection:'solicitudes_cuenta',upsert:[resolvedRequest]}];}
           const personCollection={alumno:'alumnos',maestro:'maestros',tutor:'tutores'}[request.rolSolicitado];let personaId=typeof input.personaId==='string'?input.personaId.trim():'';if(request.rolSolicitado==='alumno'){const matricula=typeof request.matricula==='string'?request.matricula.trim().toLocaleLowerCase('es'):'';const student=(await read('alumnos')).find(x=>String(x.matricula??'').trim().toLocaleLowerCase('es')===matricula&&x.activo!==false);if(!student)throw fail(400,'No existe un alumno activo con esa matrícula. Verifica la matrícula con la institución.');personaId=student.id;}if(!personaId||!(await read(personCollection)).some(x=>x.id===personaId&&x.activo!==false))throw fail(400,'Dirección debe vincular la solicitud con un expediente activo existente.');
           const accounts=await read('usuarios');if(accounts.some(x=>x.email===request.email))throw fail(409,'Ya existe una cuenta con ese correo.');if(accounts.some(x=>x.rol===request.rolSolicitado&&x.personaId===personaId&&x.activo))throw fail(409,'Ese expediente ya tiene una cuenta activa.');
-          if(passkeyCredential&&(await read('credenciales_passkey')).some(item=>item.credentialId===passkeyCredential.credentialId))throw fail(409,'El dispositivo ya está asociado a otra cuenta.');
           approvedUser={id:randomUUID(),email:request.email,nombre:request.nombre,rol:request.rolSolicitado,personaId,activo:true,passwordHash,creadoEn:new Date().toISOString(),aprobadoPor:user.id};
           resolvedRequest={...requestInfo,estado:'aprobada',usuarioId:approvedUser.id,resueltaPor:user.id,resueltaEn:new Date().toISOString()};
           const patches=[{collection:'usuarios',upsert:[approvedUser]},{collection:'solicitudes_cuenta',upsert:[resolvedRequest]}];
-          if(passkeyCredential)patches.push({collection:'credenciales_passkey',upsert:[{...passkeyCredential,usuarioId:approvedUser.id}]});
           return patches;
         });
         await audit(user,`solicitud_cuenta_${input.decision}`,accountRequestMatch[1]);
@@ -335,7 +309,6 @@ const server = http.createServer(async (req, res) => {
         if(jornada.fecha!==todayAt(jornada.zonaHoraria))return json(res,410,{error:'El código QR venció o corresponde a otra fecha.'});
         const localTime=timeAt(new Date(),jornada.zonaHoraria);if(localTime<jornada.abreEn||localTime>jornada.cierraEn)return json(res,409,{error:`El código QR sí es válido, pero el registro está cerrado. La jornada permite entradas de ${jornada.abreEn} a ${jornada.cierraEn} (${jornada.zonaHoraria}); ahora son las ${localTime}. Dirección debe habilitar una jornada con el horario correcto.`});
         const student=(await storage.read('alumnos')).find(x=>x.id===user.personaId&&x.activo!==false);if(!student)return json(res,403,{error:'La cuenta no está vinculada con un alumno activo.'});
-        await passkeys.verifyAuthentication(input.passkeyChallengeId,input.passkeyResponse,user.id,storage,req);
         const attendance={id:randomUUID(),alumnoId:student.id,nombreSnapshot:[student.nombres,student.apellidos].filter(Boolean).join(' '),fecha:jornada.fecha,jornadaId:jornada.id,horaServidor:new Date().toISOString(),metodo:'qr',estado:'validada',versionQrId:version.versionId};
         await storage.update('asistencias',rows=>{if(rows.some(x=>x.alumnoId===student.id&&x.jornadaId===jornada.id))throw fail(409,'Ya registraste tu entrada para esta jornada.');return [...rows,attendance];});await audit(user,'registrar_entrada',attendance.id);return json(res,201,{mensaje:'Entrada registrada correctamente.',asistencia:attendance});
       }
