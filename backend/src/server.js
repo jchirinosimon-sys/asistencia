@@ -2,7 +2,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { readFile, stat, readdir } from 'node:fs/promises';
 import { randomUUID, randomInt, createHash, createHmac, timingSafeEqual } from 'node:crypto';
-import { JsonStorage, COLLECTIONS } from './storage/json-storage.js';
+import { COLLECTIONS } from './storage/json-storage.js';
+import { createStorage } from './storage/create-storage.js';
 import { createSession, readSession, verifyPassword, hashPassword } from './security.js';
 
 const env = process.env;
@@ -10,9 +11,8 @@ const port = Number(env.PORT ?? 3000);
 const secret = env.SESSION_SECRET;
 if (!secret || secret.length < 32) throw new Error('Falta SESSION_SECRET o tiene menos de 32 caracteres. Copia .env.example a .env, configura SESSION_SECRET y vuelve a ejecutar npm start.');
 const root = path.resolve('frontend');
-const storage = new JsonStorage(path.resolve(env.DATA_DIR ?? 'backend/data'));
+const storage = await createStorage(env);
 const backupDir=path.resolve(env.BACKUP_DIR??'backups');
-await storage.init();
 const roles = ['direccion', 'maestro', 'alumno', 'tutor'];
 const loginFailures=new Map();
 const signupFailures=new Map();
@@ -419,3 +419,4 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, env.HOST ?? '127.0.0.1', () => console.log(`Plataforma escolar disponible en http://${env.HOST ?? '127.0.0.1'}:${port}`));
 setInterval(runScheduledJobs,30_000);
 runScheduledJobs();
+
