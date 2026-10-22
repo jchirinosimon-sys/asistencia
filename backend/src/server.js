@@ -130,8 +130,9 @@ const server = http.createServer(async (req, res) => {
       const input=await body(req),existingUser=await currentUser(req);
       const result=await passkeys.verifyRegistration(input.registrationId,input.response,req);
       if(existingUser){
+        if(!result.saved)return json(res,403,{error:'La verificación no corresponde al registro de esta cuenta.'});
         await storage.update('credenciales_passkey',rows=>{if(rows.some(item=>item.credentialId===result.saved.credentialId))throw fail(409,'Este dispositivo ya está vinculado a otra cuenta.');return[...rows,result.saved];});
-      }
+      }else if(result.saved)return json(res,403,{error:'La verificación no corresponde a una solicitud de cuenta.'});
       return json(res,201,{mensaje:result.mensaje,registrationId:result.registrationId});
     }
     if (req.method === 'POST' && url.pathname === '/api/auth/solicitudes') {
@@ -170,7 +171,7 @@ const server = http.createServer(async (req, res) => {
       }
       if(req.method==='GET'&&url.pathname==='/api/solicitudes_cuenta'){
         if(user.rol!=='direccion')return json(res,403,{error:'Solo dirección puede revisar solicitudes.'});
-        const requests=(await storage.read('solicitudes_cuenta')).map(({passwordHash,...safe})=>safe);return json(res,200,requests);
+        const requests=(await storage.read('solicitudes_cuenta')).map(({passwordHash,passkeyCredential,...safe})=>safe);return json(res,200,requests);
       }
       const accountRequestMatch=url.pathname.match(/^\/api\/solicitudes_cuenta\/([^/]+)\/resolver$/);
       if(req.method==='POST'&&accountRequestMatch){
@@ -260,6 +261,7 @@ const server = http.createServer(async (req, res) => {
       if (match && req.method === 'GET') {
         const collection = match[1];
         if (!COLLECTIONS.includes(collection)) return json(res, 404, { error: 'Colección no encontrada.' });
+        if(['credenciales_passkey','suscripciones_push'].includes(collection))return json(res,404,{error:'Colección no encontrada.'});
         if(collection==='operaciones')return json(res,403,{error:'Este archivo interno no es consultable por la API.'});
         const allowed = user.rol === 'direccion' || ['avisos_escolares','horarios','asistencias','faltas','retardos','listas_asistencia','calificaciones','boletas','mensajes','justificaciones'].includes(collection);
         if (!allowed) return json(res, 403, { error: 'Sin permiso para consultar esta información.' });

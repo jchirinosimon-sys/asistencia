@@ -37,7 +37,9 @@ export class PasskeyService {
     if (!state || state.kind !== 'registration' || state.expiresAt <= Date.now()) throw Object.assign(new Error('La verificación biométrica venció. Inténtalo de nuevo.'), { status: 410 });
     const { origin, rpID } = this.#origin(request);
     if (origin !== state.origin || rpID !== state.rpID) throw Object.assign(new Error('El origen de la verificación no coincide.'), { status: 403 });
-    const verification = await verifyRegistrationResponse({ response, expectedChallenge: state.challenge, expectedOrigin: state.origin, expectedRPID: state.rpID, requireUserVerification: true });
+    let verification;
+    try { verification = await verifyRegistrationResponse({ response, expectedChallenge: state.challenge, expectedOrigin: state.origin, expectedRPID: state.rpID, requireUserVerification: true }); }
+    catch { throw Object.assign(new Error('El teléfono no pudo validar el registro. Inténtalo otra vez desde el mismo sitio y dispositivo.'), { status: 400 }); }
     if (!verification.verified || !verification.registrationInfo?.credential) throw Object.assign(new Error('El dispositivo no pudo confirmar la biometría o el bloqueo de pantalla.'), { status: 400 });
     const credential = verification.registrationInfo.credential;
     const saved = { id: randomUUID(), usuarioId: state.userId, credentialId: credential.id, publicKey: Buffer.from(credential.publicKey).toString('base64url'), counter: credential.counter, transports: credential.transports ?? [], creadoEn: new Date().toISOString() };
@@ -77,11 +79,14 @@ export class PasskeyService {
     const rows = await storage.read('credenciales_passkey');
     const credential = rows.find(item => item.usuarioId === userId && item.credentialId === response?.id);
     if (!credential) throw Object.assign(new Error('Este dispositivo no está registrado en la cuenta.'), { status: 401 });
-    const verification = await verifyAuthenticationResponse({
-      response, expectedChallenge: state.challenge, expectedOrigin: state.origin, expectedRPID: state.rpID,
-      credential: { id: credential.credentialId, publicKey: Buffer.from(credential.publicKey, 'base64url'), counter: credential.counter, transports: credential.transports },
-      requireUserVerification: true
-    });
+    let verification;
+    try {
+      verification = await verifyAuthenticationResponse({
+        response, expectedChallenge: state.challenge, expectedOrigin: state.origin, expectedRPID: state.rpID,
+        credential: { id: credential.credentialId, publicKey: Buffer.from(credential.publicKey, 'base64url'), counter: credential.counter, transports: credential.transports },
+        requireUserVerification: true
+      });
+    } catch { throw Object.assign(new Error('No se pudo verificar el dispositivo. Escanea el QR y vuelve a intentarlo.'), { status: 401 }); }
     if (!verification.verified) throw Object.assign(new Error('No se pudo comprobar la identidad del alumno.'), { status: 401 });
     await storage.update('credenciales_passkey', all => all.map(item => item.id === credential.id ? { ...item, counter: verification.authenticationInfo.newCounter, usadoEn: new Date().toISOString() } : item));
     return true;
