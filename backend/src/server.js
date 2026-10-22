@@ -105,6 +105,10 @@ async function generateDailyMessages(date=todayAt()){
   return newNotifications.length;
 }
 let schedulerBusy=false;
+async function notifyPublishedAnnouncement(announcement) {
+  const recipients=(await storage.read('usuarios')).filter(account=>account.activo&&['alumno','maestro','tutor'].includes(account.rol));
+  return sendPushNotifications(storage,recipients.map(account=>account.id),{id:announcement.id,asunto:announcement.titulo,tipo:'aviso'},env);
+}
 async function runScheduledJobs(){if(schedulerBusy)return;schedulerBusy=true;try{
   const settings=(await storage.read('configuracion'))[0]??{},zone=settings.zonaHoraria??'America/Guatemala',today=todayAt(zone),summaryAt=settings.horaResumenDiario??'17:00';
   const prior=new Date(`${today}T12:00:00Z`);prior.setUTCDate(prior.getUTCDate()-1);await generateDailyMessages(prior.toISOString().slice(0,10));
@@ -219,7 +223,7 @@ const server = http.createServer(async (req, res) => {
           if((await storage.read('horarios')).some(x=>x.id!==id&&x.activo!==false&&Number(x.diaSemana)===Number(candidate.diaSemana)&&[x.maestroId===candidate.maestroId,x.grupoId===candidate.grupoId,Boolean(candidate.aula&&x.aula===candidate.aula)].some(Boolean)&&candidate.horaInicio<x.horaFin&&candidate.horaFin>x.horaInicio))return json(res,409,{error:'El horario se cruza con otra clase del mismo maestro, grupo o aula.'});candidate.diaSemana=Number(candidate.diaSemana);
         }
         if(['horarios','periodos_evaluacion'].includes(collection))await storage.backup(backupDir);
-        const unique=({usuarios:['email'],alumnos:['matricula'],maestros:['numeroEmpleado'],especialidades:['clave'],materias:['clave']}[collection]??[]);const updated=await storage.update(collection,rows=>{if(unique.some(key=>candidate[key]&&rows.some(row=>row.id!==id&&String(row[key]).toLowerCase()===String(candidate[key]).toLowerCase())))throw fail(409,'Ya existe otro registro con ese identificador.');return rows.map(row=>row.id===id?candidate:row);});await audit(user,'editar',`${collection}:${id}`);const edited=updated.find(x=>x.id===id);if(edited.passwordHash){const{passwordHash,...safe}=edited;return json(res,200,safe)}return json(res,200,edited);
+        const unique=({usuarios:['email'],alumnos:['matricula'],maestros:['numeroEmpleado'],especialidades:['clave'],materias:['clave']}[collection]??[]);const updated=await storage.update(collection,rows=>{if(unique.some(key=>candidate[key]&&rows.some(row=>row.id!==id&&String(row[key]).toLowerCase()===String(candidate[key]).toLowerCase())))throw fail(409,'Ya existe otro registro con ese identificador.');return rows.map(row=>row.id===id?candidate:row);});await audit(user,'editar',`${collection}:${id}`);const edited=updated.find(x=>x.id===id);if(edited.passwordHash){const{passwordHash,...safe}=edited;return json(res,200,safe)}if(collection==='avisos_escolares'&&!old.publicado&&edited.publicado)return json(res,200,{...edited,notificacionesPush:await notifyPublishedAnnouncement(edited)});return json(res,200,edited);
       }
       const passwordMatch=url.pathname.match(/^\/api\/usuarios\/([^/]+)\/password$/);
       if(req.method==='PATCH'&&passwordMatch&&user.rol==='direccion'){
@@ -229,7 +233,7 @@ const server = http.createServer(async (req, res) => {
       if(req.method==='PATCH'&&stateMatch&&user.rol==='direccion'){
         const [,collection,id]=stateMatch;if(!['usuarios',...createCollections].includes(collection))return json(res,403,{error:'Esta categoría no admite cambios de estado desde esta ruta.'});
         const updated=await storage.update(collection,rows=>{const index=rows.findIndex(x=>x.id===id);if(index<0)throw fail(404,'Registro no encontrado.');const item={...rows[index]};if(collection==='periodos_evaluacion')item.estado=item.estado==='cerrado'?'abierto':'cerrado';else{const field=collection==='usuarios'?'activo':collection==='relaciones_tutores'?'activa':collection==='avisos_escolares'?'publicado':'activo';item[field]=!(item[field]??true);}item.actualizadoEn=new Date().toISOString();rows[index]=item;return rows;});
-        await audit(user,'cambiar_estado',`${collection}:${id}`);const item=updated.find(x=>x.id===id);if(item.passwordHash){const{passwordHash,...safe}=item;return json(res,200,safe)}return json(res,200,item);
+        await audit(user,'cambiar_estado',`${collection}:${id}`);const item=updated.find(x=>x.id===id);if(item.passwordHash){const{passwordHash,...safe}=item;return json(res,200,safe)}if(collection==='avisos_escolares'&&item.publicado)return json(res,200,{...item,notificacionesPush:await notifyPublishedAnnouncement(item)});return json(res,200,item);
       }
       const match = url.pathname.match(/^\/api\/([^/]+)$/);
       if (match && req.method === 'GET') {
@@ -262,6 +266,10 @@ const server = http.createServer(async (req, res) => {
       }
       if(req.method==='GET'&&url.pathname==='/api/push/public-key'){
         return json(res,200,{enabled:Boolean(env.VAPID_PUBLIC_KEY&&env.VAPID_PRIVATE_KEY&&env.VAPID_SUBJECT),publicKey:env.VAPID_PUBLIC_KEY??''});
+      }
+      if(req.method==='POST'&&url.pathname==='/api/push/test'){
+        const report=await sendPushNotifications(storage,[user.id],{id:randomUUID(),asunto:'Si recibiste este aviso, las notificaciones están funcionando.',tipo:'prueba'},env);
+        return json(res,200,report);
       }
       if(req.method==='POST'&&url.pathname==='/api/push/subscriptions'){
         const input=await body(req),subscription=input.subscription;
@@ -417,6 +425,7 @@ const server = http.createServer(async (req, res) => {
           return [...rows, saved];
         });
         await audit(user, 'crear', collection);
+        if(collection==='avisos_escolares'&&saved.publicado)return json(res,201,{...saved,notificacionesPush:await notifyPublishedAnnouncement(saved)});
         return json(res, 201, saved);
       }
       return json(res, 404, { error: 'Ruta no encontrada.' });
