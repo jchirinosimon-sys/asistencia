@@ -41,6 +41,7 @@ async function authorizedRecords(collection,user,selectedStudentId=null){
   if(user.rol==='direccion')return collection==='usuarios'?records.map(({passwordHash,...safe})=>safe):records;
   if(collection==='avisos_escolares')return records.filter(x=>x.publicado===true);
   if(user.rol==='alumno'){
+    if(collection==='mensajes')return records.filter(x=>x.destinatarioUsuarioId===user.id);
     if(collection==='boletas')return records.filter(x=>x.alumnoId===user.personaId&&x.publicada===true);
     if(collection==='calificaciones'){const ids=new Set((await storage.read('boletas')).filter(x=>x.alumnoId===user.personaId&&x.publicada).flatMap(x=>x.referenciasCalificacionIds??[]));return records.filter(x=>x.alumnoId===user.personaId&&ids.has(x.id));}
     if(collection==='horarios'){
@@ -53,13 +54,15 @@ async function authorizedRecords(collection,user,selectedStudentId=null){
     const ids=new Set(links.map(x=>x.alumnoId));if(selectedStudentId&&ids.has(selectedStudentId)){ids.clear();ids.add(selectedStudentId);}
     if(collection==='boletas')return records.filter(x=>ids.has(x.alumnoId)&&x.publicada===true);
     if(collection==='calificaciones'){const published=new Set((await storage.read('boletas')).filter(x=>ids.has(x.alumnoId)&&x.publicada).flatMap(x=>x.referenciasCalificacionIds??[]));return records.filter(x=>ids.has(x.alumnoId)&&published.has(x.id));}
-    if(['asistencias','faltas','retardos','mensajes','justificaciones'].includes(collection))return records.filter(x=>ids.has(x.alumnoId)&&(!x.tutorId||x.tutorId===user.personaId));
+    if(collection==='mensajes')return records.filter(x=>x.destinatarioUsuarioId===user.id);
+    if(['asistencias','faltas','retardos','justificaciones'].includes(collection))return records.filter(x=>ids.has(x.alumnoId)&&(!x.tutorId||x.tutorId===user.personaId));
     if(collection==='horarios'){
       const ins=(await storage.read('inscripciones')).filter(x=>ids.has(x.alumnoId)&&x.estado==='activa');const groups=new Set(ins.map(x=>x.grupoId));return records.filter(x=>x.activo!==false&&groups.has(x.grupoId));
     }
     return [];
   }
   if(user.rol==='maestro'){
+    if(collection==='mensajes')return records.filter(x=>x.destinatarioUsuarioId===user.id);
     if(['horarios','listas_asistencia','faltas','retardos','calificaciones'].includes(collection))return records.filter(x=>x.activo!==false&&x.maestroId===user.personaId);
     return [];
   }
@@ -116,12 +119,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, { estado: 'disponible' });
     if (req.method === 'POST' && url.pathname === '/api/auth/solicitudes') {
       const ip=req.socket.remoteAddress??'local',now=Date.now(),attempts=signupFailures.get(ip);if(attempts&&attempts.until>now&&attempts.count>=5)return json(res,429,{error:'Se alcanzó el límite de solicitudes. Intenta de nuevo más tarde.'});if(!attempts||attempts.until<=now)signupFailures.set(ip,{count:0,until:now+15*60_000});
-      const input=await body(req),nombre=typeof input.nombre==='string'?input.nombre.trim():'',email=typeof input.email==='string'?input.email.trim().toLowerCase():'',password=input.password,rolSolicitado=input.rol;
-      if(nombre.length<2||nombre.length>120||!/^\S+@\S+\.\S+$/.test(email)||email.length>254||typeof password!=='string'||password.length<12||password.length>200||!['alumno','maestro','tutor'].includes(rolSolicitado))return json(res,400,{error:'Completa nombre, correo, tipo de cuenta y una contraseña de 12 caracteres o más.'});
+      const input=await body(req),nombre=typeof input.nombre==='string'?input.nombre.trim():'',email=typeof input.email==='string'?input.email.trim().toLowerCase():'',password=input.password,rolSolicitado=input.rol,matricula=typeof input.matricula==='string'?input.matricula.trim():'';
+      if(nombre.length<2||nombre.length>120||!/^\S+@\S+\.\S+$/.test(email)||email.length>254||typeof password!=='string'||password.length<12||password.length>200||!['alumno','maestro','tutor'].includes(rolSolicitado)||(rolSolicitado==='alumno'&&(!matricula||matricula.length>40)))return json(res,400,{error:'Completa nombre, correo, tipo de cuenta, matrícula si eres alumno y una contraseña de 12 caracteres o más.'});
       const attemptState=signupFailures.get(ip);signupFailures.set(ip,{...attemptState,count:attemptState.count+1});
-      const request={id:randomUUID(),nombre,email,rolSolicitado,passwordHash:await hashPassword(password),estado:'pendiente',creadoEn:new Date().toISOString()};
+      const request={id:randomUUID(),nombre,email,rolSolicitado,...(rolSolicitado==='alumno'?{matricula}:{}),passwordHash:await hashPassword(password),estado:'pendiente',creadoEn:new Date().toISOString()};
       await storage.update('solicitudes_cuenta',async rows=>{const accounts=await storage.read('usuarios');if(accounts.some(x=>x.email===email)||rows.some(x=>x.email===email&&x.estado==='pendiente'))throw fail(409,'Ya existe una cuenta o solicitud pendiente con ese correo.');return[...rows,request];});
-      return json(res,202,{mensaje:'Solicitud recibida. Dirección debe aprobar y vincular tu expediente antes de que puedas iniciar sesión.'});
+      return json(res,202,{mensaje:rolSolicitado==='alumno'?'Solicitud recibida. Dirección debe aprobarla; la matrícula se usará para encontrar tu expediente.':'Solicitud recibida. Dirección debe aprobar y vincular tu expediente antes de que puedas iniciar sesión.'});
     }
     if (req.method === 'POST' && url.pathname === '/api/auth/login') {
       const ip=req.socket.remoteAddress??'local',now=Date.now(),entry=loginFailures.get(ip);if(entry&&entry.until>now&&entry.count>=10)return json(res,429,{error:'Demasiados intentos. Espera 15 minutos y vuelve a intentarlo.'});if(entry&&entry.until<=now)loginFailures.delete(ip);
@@ -154,7 +157,7 @@ const server = http.createServer(async (req, res) => {
           const requests=await read('solicitudes_cuenta'),request=requests.find(x=>x.id===accountRequestMatch[1]);if(!request||request.estado!=='pendiente')throw fail(409,'La solicitud no existe o ya fue atendida.');
           const {passwordHash,...requestInfo}=request;
           if(input.decision==='rechazar'){resolvedRequest={...requestInfo,estado:'rechazada',resueltaPor:user.id,resueltaEn:new Date().toISOString()};return[{collection:'solicitudes_cuenta',upsert:[resolvedRequest]}];}
-          const personCollection={alumno:'alumnos',maestro:'maestros',tutor:'tutores'}[request.rolSolicitado],personaId=typeof input.personaId==='string'?input.personaId.trim():'';if(!personaId||!(await read(personCollection)).some(x=>x.id===personaId&&x.activo!==false))throw fail(400,'Dirección debe vincular la solicitud con un expediente activo existente.');
+          const personCollection={alumno:'alumnos',maestro:'maestros',tutor:'tutores'}[request.rolSolicitado];let personaId=typeof input.personaId==='string'?input.personaId.trim():'';if(request.rolSolicitado==='alumno'){const matricula=typeof request.matricula==='string'?request.matricula.trim().toLocaleLowerCase('es'):'';const student=(await read('alumnos')).find(x=>String(x.matricula??'').trim().toLocaleLowerCase('es')===matricula&&x.activo!==false);if(!student)throw fail(400,'No existe un alumno activo con esa matrícula. Verifica la matrícula con la institución.');personaId=student.id;}if(!personaId||!(await read(personCollection)).some(x=>x.id===personaId&&x.activo!==false))throw fail(400,'Dirección debe vincular la solicitud con un expediente activo existente.');
           const accounts=await read('usuarios');if(accounts.some(x=>x.email===request.email))throw fail(409,'Ya existe una cuenta con ese correo.');if(accounts.some(x=>x.rol===request.rolSolicitado&&x.personaId===personaId&&x.activo))throw fail(409,'Ese expediente ya tiene una cuenta activa.');
           approvedUser={id:randomUUID(),email:request.email,nombre:request.nombre,rol:request.rolSolicitado,personaId,activo:true,passwordHash,creadoEn:new Date().toISOString(),aprobadoPor:user.id};
           resolvedRequest={...requestInfo,estado:'aprobada',usuarioId:approvedUser.id,resueltaPor:user.id,resueltaEn:new Date().toISOString()};
@@ -233,7 +236,7 @@ const server = http.createServer(async (req, res) => {
         if(collection==='operaciones')return json(res,403,{error:'Este archivo interno no es consultable por la API.'});
         const allowed = user.rol === 'direccion' || ['avisos_escolares','horarios','asistencias','faltas','retardos','listas_asistencia','calificaciones','boletas','mensajes','justificaciones'].includes(collection);
         if (!allowed) return json(res, 403, { error: 'Sin permiso para consultar esta información.' });
-        const selectedStudentId=url.searchParams.get('alumnoId');let results=await authorizedRecords(collection,user,selectedStudentId);
+        const selectedStudentId=url.searchParams.get('alumnoId');let results=await authorizedRecords(collection,user,selectedStudentId);if(collection==='usuarios')results=results.map(({passwordHash,...safe})=>safe);
         for(const key of ['grupoId','materiaId','especialidadId','semestreId','periodoId','estado','fecha']){const value=url.searchParams.get(key);if(value)results=results.filter(row=>String(row[key]??'')===value);}
         const query=url.searchParams.get('q')?.trim().toLocaleLowerCase('es');if(query)results=results.filter(row=>Object.entries(row).filter(([key])=>/nombre|matricula|titulo|materia|asunto/i.test(key)).some(([,value])=>String(value??'').toLocaleLowerCase('es').includes(query)));
         const total=results.length,limit=Math.min(200,Math.max(1,Number(url.searchParams.get('limit')??50))),offset=Math.max(0,Number(url.searchParams.get('offset')??0));if(!Number.isFinite(limit)||!Number.isFinite(offset))return json(res,400,{error:'Paginación inválida.'});return json(res, 200, results.slice(offset,offset+limit),{'x-total-count':String(total),'x-limit':String(limit),'x-offset':String(offset)});
@@ -243,6 +246,27 @@ const server = http.createServer(async (req, res) => {
         const calendar=await storage.read('calendario_escolar');const calendarDay=calendar.find(x=>x.fecha===input.fecha&&x.activo!==false);if(!calendarDay)return json(res,409,{error:'Primero define esta fecha como lectiva en el calendario escolar.'});if(!['lectivo','clases','jornada_especial'].includes(String(calendarDay.tipo).toLowerCase()))return json(res,409,{error:'El calendario marca esta fecha como día sin clases ordinarias.'});
         const created={id:randomUUID(),fecha:input.fecha,nombre:String(input.nombre??'Jornada ordinaria').trim(),estado:'habilitada',abreEn:input.abreEn??'06:00',cierraEn:input.cierraEn??'08:00',zonaHoraria:input.zonaHoraria??'America/Guatemala',creadoEn:new Date().toISOString(),creadoPor:user.id};
         await storage.update('jornadas',rows=>{if(rows.some(x=>x.fecha===created.fecha&&x.estado==='habilitada'))throw fail(409,'Ya existe una jornada habilitada para esta fecha.');return [...rows,created];});await audit(user,'habilitar_jornada',created.id);return json(res,201,created);
+      }
+      if(req.method==='DELETE'&&url.pathname.startsWith('/api/jornadas/')&&user.rol==='direccion'){
+        const id=decodeURIComponent(url.pathname.slice('/api/jornadas/'.length)),jornada=(await storage.read('jornadas')).find(x=>x.id===id);if(!jornada)return json(res,404,{error:'Jornada no encontrada.'});
+        if((await storage.read('asistencias')).some(x=>x.jornadaId===id))return json(res,409,{error:'No se puede borrar esta jornada porque ya tiene entradas registradas. Ciérrala para conservar el historial.'});
+        const revoked=(await storage.read('qr_diarios')).filter(x=>x.jornadaId===id&&x.activa).map(x=>({...x,activa:false,revocadaEn:new Date().toISOString()}));
+        if(revoked.length)await storage.update('qr_diarios',rows=>rows.map(row=>revoked.find(x=>x.id===row.id)??row));
+        await storage.update('jornadas',rows=>rows.filter(row=>row.id!==id));await audit(user,'borrar_jornada',id);return json(res,200,{mensaje:'Jornada borrada.'});
+      }
+      if(req.method==='GET'&&url.pathname==='/api/mensajes/destinatarios'&&user.rol==='direccion'){
+        const recipients=(await storage.read('usuarios')).filter(x=>x.activo).map(({id,nombre,email,rol})=>({id,nombre,email,rol}));return json(res,200,recipients);
+      }
+      if(req.method==='POST'&&url.pathname==='/api/mensajes'&&user.rol==='direccion'){
+        const input=await body(req),asunto=typeof input.asunto==='string'?input.asunto.trim():'',contenido=typeof input.contenido==='string'?input.contenido.trim():'',destinatario=typeof input.destinatario==='string'?input.destinatario.trim():'';
+        if(asunto.length<2||asunto.length>160||contenido.length<2||contenido.length>5000)return json(res,400,{error:'Escribe un asunto y un mensaje de 2 a 5000 caracteres.'});
+        const accounts=(await storage.read('usuarios')).filter(x=>x.activo);let recipients;
+        if(destinatario==='todos_alumnos')recipients=accounts.filter(x=>x.rol==='alumno');
+        else recipients=accounts.filter(x=>x.id===destinatario);
+        if(!recipients.length)return json(res,404,{error:destinatario==='todos_alumnos'?'No hay cuentas activas de alumnos para recibir el mensaje.':'Selecciona un usuario activo.'});
+        const createdAt=new Date().toISOString(),broadcast=destinatario==='todos_alumnos',messages=recipients.map(target=>({id:randomUUID(),destinatarioUsuarioId:target.id,destinatarioNombre:target.nombre,...(target.rol==='alumno'&&target.personaId?{alumnoId:target.personaId}:{}),alcance:broadcast?'alumnos':'individual',asunto,contenido,creadoPor:user.id,creadoEn:createdAt,leidoEn:null}));
+        await storage.update('mensajes',rows=>[...rows,...messages]);await audit(user,'enviar_mensaje',broadcast?'todos_alumnos:'+messages.length:recipients[0].id);
+        return json(res,201,{mensaje:broadcast?'Mensaje enviado a '+messages.length+' alumno(s).':'Mensaje enviado.',cantidad:messages.length});
       }
       if(req.method==='POST'&&url.pathname==='/api/qr_diarios/renovar'&&user.rol==='direccion'){
         const input=await body(req);const jornada=(await storage.read('jornadas')).find(x=>x.id===input.jornadaId&&x.estado==='habilitada');if(!jornada)return json(res,404,{error:'No existe una jornada habilitada para ese QR.'});
@@ -326,8 +350,13 @@ const server = http.createServer(async (req, res) => {
         const input = await body(req);
         const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
         if (!email.includes('@') || typeof input.nombre !== 'string' || !input.nombre.trim() || !roles.includes(input.rol) || typeof input.password !== 'string' || input.password.length < 12) return json(res, 400, { error: 'Indica nombre, correo válido, rol y contraseña de al menos 12 caracteres.' });
-        const personaId = input.personaId;
-        if (input.rol !== 'direccion') {
+        let personaId = input.personaId;
+        if(input.rol==='alumno'){
+          const matricula=typeof input.matricula==='string'?input.matricula.trim().toLocaleLowerCase('es'):'';
+          const student=(await storage.read('alumnos')).find(person=>String(person.matricula??'').trim().toLocaleLowerCase('es')===matricula&&person.activo!==false);
+          if(!student)return json(res,400,{error:'No existe un alumno activo con esa matrícula.'});
+          personaId=student.id;
+        }else if (input.rol !== 'direccion') {
           const personCollection = { alumno: 'alumnos', maestro: 'maestros', tutor: 'tutores' }[input.rol];
           if (typeof personaId !== 'string' || !(await storage.read(personCollection)).some(person => person.id === personaId)) return json(res, 400, { error: 'La persona asociada al rol no existe.' });
         }
@@ -335,6 +364,7 @@ const server = http.createServer(async (req, res) => {
         const created = { id: randomUUID(), email, nombre: input.nombre.trim(), rol: input.rol, activo: true, ...(personaId ? { personaId } : {}), passwordHash, creadoEn: new Date().toISOString() };
         await storage.update('usuarios', rows => {
           if (rows.some(item => item.email.toLowerCase() === email)) throw Object.assign(new Error('Ya existe una cuenta con ese correo.'), { status: 409 });
+          if(personaId&&rows.some(item=>item.rol===input.rol&&item.personaId===personaId&&item.activo))throw fail(409,'Ese expediente ya tiene una cuenta activa.');
           return [...rows, created];
         });
         await audit(user, 'crear_usuario', created.id);
