@@ -1,10 +1,7 @@
-import { JsonStorage } from './storage/json-storage.js';
+import { createStorage } from './storage/create-storage.js';
 import { hashPassword } from './security.js';
 import { randomUUID } from 'node:crypto';
-import path from 'node:path';
-const dataDir = path.resolve(process.env.DATA_DIR ?? 'backend/data');
-const storage = new JsonStorage(dataDir);
-await storage.init();
+const storage = await createStorage(process.env);
 const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
 const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
 if (!email || !password || password.length < 12) {
@@ -22,3 +19,5 @@ if (users.some(user => user.email.toLowerCase() === email.toLowerCase())) {
   }]);
   console.log(`Administrador inicial creado para ${email}. Cambie la contraseña desde un entorno seguro.`);
 }
+await storage.close?.();
+

@@ -22,3 +22,6 @@
 .qr-image{width:min(100%,340px)}
 .qr-result .qr-manual-code{display:block;padding:12px 20px;background:#edf5ef;border:2px dashed #176b58;border-radius:12px;color:#103b32;font:800 34px ui-monospace,Consolas,monospace;letter-spacing:.24em;text-align:center}
 .qr-manual-hint{font-size:12px;color:#52675c}
+
+.passkey-enroll{display:grid;gap:7px}.passkey-enroll small{font-size:11px;color:#71817b;line-height:1.5}@media(max-width:600px){.topbar-actions{gap:5px}#passkey-setup,#push-notifications{font-size:10px;padding:7px 8px}}
+
