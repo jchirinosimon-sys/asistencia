@@ -8,7 +8,7 @@ export const COLLECTIONS = [
   'calendario_escolar', 'jornadas', 'qr_diarios', 'asistencias', 'faltas',
   'retardos', 'listas_asistencia', 'justificaciones', 'notificaciones', 'mensajes',
   'periodos_evaluacion', 'calificaciones', 'boletas', 'avisos_escolares',
-  'configuracion', 'auditoria', 'solicitudes_cuenta', 'metadata', 'operaciones'
+  'configuracion', 'auditoria', 'solicitudes_cuenta', 'credenciales_passkey', 'suscripciones_push', 'metadata', 'operaciones'
 ];
 
 export class JsonStorage {

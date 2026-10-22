@@ -1,4 +1,4 @@
-const CACHE_NAME = 'asistencia-shell-v2';
+const CACHE_NAME = 'asistencia-shell-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -24,6 +24,29 @@ self.addEventListener('activate', event => {
       .then(keys => Promise.all(keys.filter(key => /^(gestion-escolar-shell-|asistencia-shell-)/.test(key) && key !== CACHE_NAME).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data?.json() ?? {}; } catch { data = { title: 'Asistencia', body: 'Tienes un mensaje nuevo.' }; }
+  const url = typeof data.url === 'string' && data.url.startsWith('/') ? data.url : '/';
+  event.waitUntil(self.registration.showNotification(data.title ?? 'Asistencia', {
+    body: data.body ?? 'Tienes un mensaje nuevo.',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url },
+    tag: 'asistencia-mensaje'
+  }));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url ?? '/', self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+    const existing = clients.find(client => new URL(client.url).origin === self.location.origin);
+    if (existing) return existing.navigate(target).then(() => existing.focus());
+    return self.clients.openWindow(target);
+  }));
 });
 
 self.addEventListener('fetch', event => {
