@@ -6,7 +6,7 @@ export const COLLECTIONS = [
   'usuarios', 'alumnos', 'maestros', 'tutores', 'relaciones_tutores', 'grupos',
   'especialidades', 'semestres', 'materias', 'inscripciones', 'horarios',
   'calendario_escolar', 'jornadas', 'qr_diarios', 'asistencias', 'faltas',
-  'retardos', 'listas_asistencia', 'justificaciones', 'notificaciones', 'mensajes',
+  'retardos', 'listas_asistencia', 'justificaciones', 'permisos', 'notificaciones', 'mensajes',
   'periodos_evaluacion', 'calificaciones', 'boletas', 'avisos_escolares',
   'configuracion', 'auditoria', 'solicitudes_cuenta', 'credenciales_passkey', 'suscripciones_push', 'metadata', 'operaciones'
 ];
