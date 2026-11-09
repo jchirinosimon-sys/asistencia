@@ -100,8 +100,20 @@ async function submitPendingAttendance(user) {
   showAttendanceNotice('QR listo. Pulsa «Registrar entrada» para guardar la entrada.');
 }
 function goLogin(message='') {
+  setNavigationOpen(false);
+  $('#portal-menu-button').classList.add('hidden');
   localStorage.removeItem(tokenKey); $('#portal').classList.add('hidden'); $('#login').classList.remove('hidden'); $('#session-indicator').classList.add('hidden');
   $('#login-error').textContent = message;
+}
+function setNavigationOpen(open) {
+  const drawer=$('#navigation-drawer'),button=$('#portal-menu-button');
+  drawer.classList.toggle('is-open',open);
+  $('#nav-backdrop').classList.toggle('is-visible',open);
+  document.body.classList.toggle('navigation-open',open);
+  button.setAttribute('aria-expanded',String(open));
+  button.setAttribute('aria-label',open?'Cerrar menú de navegación':'Abrir menú de navegación');
+  if(open)drawer.querySelector('.nav-link.active, .nav-link')?.focus({preventScroll:true});
+  else button.focus({preventScroll:true});
 }
 function metric(label,value,icon) {
   const item=document.createElement('article');item.className='metric-card';
@@ -127,7 +139,8 @@ async function showPortal(user) {
   if(user.rol==='alumno')pages.shift();
   const groups=[];
   for(const [key,title,icon,group='Mi espacio'] of pages){let section=groups.find(x=>x.group===group);if(!section){section={group,items:[]};groups.push(section)}section.items.push({key,title,icon});}
-  $('#nav').replaceChildren(...groups.map(section=>{const fragment=document.createDocumentFragment();const heading=document.createElement('span');heading.className='nav-heading';heading.textContent=section.group;fragment.append(heading,...section.items.map(item=>{const b=document.createElement('button');b.className='nav-link';b.innerHTML=`<span class="nav-icon">${item.icon}</span><span>${item.title}</span>`;b.onclick=()=>{loadPage(item.key,item.title,b);document.querySelector('.main-column').scrollIntoView({behavior:'smooth',block:'start'});};return b;}));return fragment;}));
+  $('#nav').replaceChildren(...groups.map(section=>{const fragment=document.createDocumentFragment();const heading=document.createElement('span');heading.className='nav-heading';heading.textContent=section.group;fragment.append(heading,...section.items.map(item=>{const b=document.createElement('button');b.className='nav-link';b.innerHTML=`<span class="nav-icon">${item.icon}</span><span>${item.title}</span>`;b.onclick=()=>{loadPage(item.key,item.title,b);setNavigationOpen(false);document.querySelector('.main-column').scrollIntoView({behavior:'smooth',block:'start'});};return b;}));return fragment;}));
+  $('#portal-menu-button').classList.remove('hidden');
   if(user.rol==='direccion') await loadPage('dashboard','Resumen',$('#nav button')); else await loadPage(pages[0][0],pages[0][1],$('#nav button'));
   const query=new URLSearchParams(location.search),target=query.has('mensaje')?'mensajes':query.has('aviso')?'avisos_escolares':null;if(target){const navButton=[...document.querySelectorAll('.nav-link')].find(item=>item.textContent.includes(labels[target]));if(navButton){await loadPage(target,labels[target],navButton);history.replaceState(null,'',location.pathname+location.hash)}}
 }
@@ -297,6 +310,10 @@ function renderOpenListActions(records){const schedules=records.filter(x=>x.id&&
 function renderCloseListActions(records){for(const list of records.filter(x=>x.estado==='abierta')){const box=actionBox(`Cerrar lista · ${list.fecha}`,`Confirma presentes, retardos y ausencias para ${list.alumnos?.length??0} alumnos.`);const form=document.createElement('form');form.className='attendance-list';for(const student of list.alumnos??[]){const row=document.createElement('label');row.className='attendance-person';const name=document.createElement('span');name.textContent=student.nombreSnapshot;const select=document.createElement('select');select.name=student.alumnoId;for(const [value,label] of [['pendiente','Seleccionar estado'],['presente','Presente'],['retardo','Retardo'],['ausente','Ausente']]){const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=value==='pendiente';select.append(option)}row.append(name,select);form.append(row)}const submit=document.createElement('button');submit.textContent='Cerrar lista y guardar';const hint=document.createElement('span');hint.className='form-note';form.append(submit,hint);form.onsubmit=async e=>{e.preventDefault();submit.disabled=true;const alumnos=Array.from(form.querySelectorAll('select')).map(x=>({alumnoId:x.name,estado:x.value}));try{await api(`/api/listas_asistencia/${list.id}/cerrar`,{method:'POST',body:JSON.stringify({alumnos})});hint.textContent='Lista cerrada. Faltas y retardos quedaron guardados.';await loadPage('listas_asistencia','Listas de clase',document.querySelector('.nav-link.active'));}catch(error){hint.textContent=error.message;submit.disabled=false}};box.append(form);$('#list').append(box);}}
 $('#login-form').addEventListener('submit',async event=>{event.preventDefault();$('#login-error').textContent='';const submit=event.currentTarget.querySelector('button');submit.disabled=true;try{const result=await api('/api/auth/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(event.currentTarget)))});localStorage.setItem(tokenKey,result.token);me=result.usuario;await showPortal(me);await submitPendingAttendance(me);}catch(error){$('#login-error').textContent=error.message;}finally{submit.disabled=false;}});
 $('#push-notifications').addEventListener('click',enablePushNotifications);
+$('#portal-menu-button').addEventListener('click',()=>setNavigationOpen(!$('#navigation-drawer').classList.contains('is-open')));
+$('#close-navigation').addEventListener('click',()=>setNavigationOpen(false));
+$('#nav-backdrop').addEventListener('click',()=>setNavigationOpen(false));
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('#navigation-drawer').classList.contains('is-open'))setNavigationOpen(false);});
 $('#show-signup').onclick=()=>{$('#login').classList.add('hidden');$('#signup').classList.remove('hidden');$('#signup-result').textContent='';};
 $('#cancel-signup').onclick=()=>{$('#signup').classList.add('hidden');$('#login').classList.remove('hidden');};
 async function loadSpecialtyChoices(){try{const areas=await api('/api/auth/especialidades');for(const id of ['signup-specialty-list','account-specialty-list']){const list=document.getElementById(id);if(list)list.replaceChildren(...areas.map(area=>{const option=document.createElement('option');option.value=area.nombre;return option}))}}catch{}}
