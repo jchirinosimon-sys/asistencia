@@ -2,6 +2,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { readFile, stat, readdir } from 'node:fs/promises';
 import { randomUUID, randomInt, createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import ExcelJS from 'exceljs';
 import { COLLECTIONS } from './storage/json-storage.js';
 import { createStorage } from './storage/create-storage.js';
 import { createSession, readSession, verifyPassword, hashPassword } from './security.js';
@@ -26,6 +27,48 @@ const fail = (status,message) => Object.assign(new Error(message),{status});
 const safeEqual = (a,b) => { const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y); };
 const hashQrToken = token => token.length===5 ? createHmac('sha256',secret).update(token).digest('hex') : createHash('sha256').update(token).digest('hex');
 const normalizeAreaName=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');
+const studentImportFields=['nombres','apellidos','especialidad','grado','grupo','matricula','semestre','ciclo'];
+function importCellText(cell){
+  const value=cell.value;
+  if(value&&typeof value==='object'&&('formula'in value||'sharedFormula'in value))throw fail(400,'La plantilla no admite fórmulas; pega valores en las celdas antes de importar.');
+  if(value&&typeof value==='object'&&Array.isArray(value.richText))return value.richText.map(part=>part.text??'').join('').trim();
+  if(value&&typeof value==='object'&&typeof value.text==='string')return value.text.trim();
+  return String(cell.text??value??'').trim();
+}
+async function parseStudentWorkbook(bytes){
+  const workbook=new ExcelJS.Workbook();
+  try{await workbook.xlsx.load(bytes);}catch{throw fail(400,'No se pudo leer el archivo. Guarda la hoja como Libro de Excel (.xlsx) e inténtalo de nuevo.');}
+  const worksheet=workbook.worksheets[0];
+  if(!worksheet)throw fail(400,'El archivo no contiene una hoja de cálculo.');
+  if(worksheet.rowCount>5001)throw fail(413,'El archivo supera el límite de 5,000 filas.');
+  const headerRow=worksheet.getRow(1),headers=new Map();
+  for(let column=1;column<=headerRow.cellCount;column++){
+    const header=normalizeAreaName(importCellText(headerRow.getCell(column))).replace(/[^a-z0-9]/g,'');
+    if(!header)continue;
+    if(headers.has(header))throw fail(400,`El encabezado «${header}» está repetido.`);
+    headers.set(header,column);
+  }
+  const missing=studentImportFields.filter(field=>!headers.has(field));
+  if(missing.length)throw fail(400,`Faltan columnas requeridas: ${missing.join(', ')}.`);
+  const rows=[],errors=[];
+  for(let rowNumber=2;rowNumber<=worksheet.rowCount;rowNumber++){
+    const row=worksheet.getRow(rowNumber),record=Object.fromEntries(studentImportFields.map(field=>[field,importCellText(row.getCell(headers.get(field)))]));
+    if(Object.values(record).every(value=>!value))continue;
+    const issues=[];
+    for(const field of ['nombres','apellidos','especialidad','grado','grupo','matricula','ciclo']){
+      const max=field==='matricula'?40:120;
+      if(!record[field])issues.push(`${field} es obligatorio`);
+      else if(record[field].length>max)issues.push(`${field} excede ${max} caracteres`);
+    }
+    const semester=Number(record.semestre);
+    if(!Number.isInteger(semester)||semester<1||semester>6)issues.push('semestre debe ser un número entero del 1 al 6');
+    if(issues.length)errors.push(`Fila ${rowNumber}: ${issues.join('; ')}.`);
+    else rows.push({...record,semestre:semester,rowNumber});
+  }
+  if(errors.length)return{rows,errors};
+  if(!rows.length)throw fail(400,'La hoja no contiene alumnos para importar.');
+  return{rows,errors:[]};
+}
 function validateFields(collection, record){
   const required={alumnos:['nombres','apellidos','matricula'],maestros:['nombres','apellidos'],tutores:['nombres','apellidos'],relaciones_tutores:['tutorId','alumnoId','parentesco'],grupos:['nombre','ciclo'],especialidades:['nombre'],semestres:['nombre'],materias:['nombre'],inscripciones:['alumnoId','grupoId','ciclo'],avisos_escolares:['titulo','contenido'],horarios:['diaSemana','horaInicio','horaFin','materiaId','maestroId','grupoId'],calendario_escolar:['fecha','tipo'],periodos_evaluacion:['nombre','iniciaEn','terminaEn']}[collection]??[];
   for(const key of required)if(record[key]===undefined||record[key]===null||record[key]==='')throw fail(400,`El campo ${key} es obligatorio.`);
@@ -43,7 +86,7 @@ async function authorizedRecords(collection,user,selectedStudentId=null){
   if(user.rol==='direccion')return collection==='usuarios'?records.map(({passwordHash,...safe})=>safe):records;
   if(collection==='avisos_escolares')return records.filter(x=>x.publicado===true&&(!x.audiencia||x.audiencia==='usuarios'||x.audiencia===user.rol));
   if(user.rol==='alumno'){
-    if(collection==='permisos')return records.filter(x=>x.alumnoId===user.personaId);
+    if(collection==='permisos')return records.filter(x=>x.alumnoId===user.personaId&&x.estado==='autorizado').map(({fotoCredencial,firmaTutor,...permit})=>permit);
     if(collection==='mensajes')return records.filter(x=>x.destinatarioUsuarioId===user.id);
     if(collection==='boletas')return records.filter(x=>x.alumnoId===user.personaId&&x.publicada===true);
     if(collection==='calificaciones'){const ids=new Set((await storage.read('boletas')).filter(x=>x.alumnoId===user.personaId&&x.publicada).flatMap(x=>x.referenciasCalificacionIds??[]));return records.filter(x=>x.alumnoId===user.personaId&&ids.has(x.id));}
@@ -72,9 +115,9 @@ async function authorizedRecords(collection,user,selectedStudentId=null){
   }
   return [];
 }
-async function body(req) {
+async function body(req, maxLength=4_000_000) {
   let raw = '';
-  for await (const chunk of req) { raw += chunk; if (raw.length > 4_000_000) throw Object.assign(new Error('Solicitud demasiado grande'), { status: 413 }); }
+  for await (const chunk of req) { raw += chunk; if (raw.length > maxLength) throw Object.assign(new Error('Solicitud demasiado grande'), { status: 413 }); }
   try { return raw ? JSON.parse(raw) : {}; } catch { throw Object.assign(new Error('JSON inválido'), { status: 400 }); }
 }
 async function currentUser(req) {
@@ -168,6 +211,60 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname.startsWith('/api/')) {
       if (!user) return json(res, 401, { error: 'Inicia sesión.' });
+      if(req.method==='GET'&&url.pathname==='/api/alumnos/plantilla.xlsx'){
+        if(user.rol!=='direccion')return json(res,403,{error:'Solo Dirección puede descargar la plantilla de alumnos.'});
+        const workbook=new ExcelJS.Workbook(),sheet=workbook.addWorksheet('Alumnos');
+        sheet.columns=[{header:'Nombres',key:'nombres',width:24},{header:'Apellidos',key:'apellidos',width:26},{header:'Especialidad',key:'especialidad',width:24},{header:'Grado',key:'grado',width:12},{header:'Grupo',key:'grupo',width:12},{header:'Matrícula',key:'matricula',width:20},{header:'Semestre',key:'semestre',width:12},{header:'Ciclo',key:'ciclo',width:18}];
+        sheet.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};sheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF8E1B22'}};sheet.views=[{state:'frozen',ySplit:1}];sheet.autoFilter='A1:H1';
+        const example=workbook.addWorksheet('Ejemplo');
+        example.columns=sheet.columns.map(column=>({header:column.header,key:column.key,width:column.width}));
+        example.addRow({nombres:'Ana Sofía',apellidos:'López Pérez',especialidad:'Informática',grado:'2',grupo:'A',matricula:'QA-0001',semestre:3,ciclo:'2026-2027'});
+        example.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};example.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF8E1B22'}};example.views=[{state:'frozen',ySplit:1}];example.autoFilter='A1:H1';
+        const output=Buffer.from(await workbook.xlsx.writeBuffer());
+        res.writeHead(200,{...securityHeaders,'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','content-disposition':'attachment; filename="plantilla-alumnos.xlsx"','cache-control':'no-store'});return res.end(output);
+      }
+      if(req.method==='POST'&&url.pathname==='/api/alumnos/importar'){
+        if(user.rol!=='direccion')return json(res,403,{error:'Solo Dirección puede importar alumnos.'});
+        const input=await body(req,8_000_000);
+        if(typeof input.nombreArchivo!=='string'||!input.nombreArchivo.toLowerCase().endsWith('.xlsx')||typeof input.contenido!=='string'||!input.contenido||!/^[A-Za-z0-9+/]+={0,2}$/.test(input.contenido))return json(res,400,{error:'Selecciona un archivo .xlsx válido.'});
+        if(input.contenido.length>7_000_000)return json(res,413,{error:'El archivo no puede superar 5 MB.'});
+        const bytes=Buffer.from(input.contenido,'base64');
+        if(bytes.length>5_000_000||bytes.length<4||bytes.subarray(0,2).toString('hex')!=='504b'||bytes.toString('base64').replace(/=+$/,'')!==input.contenido.replace(/=+$/,''))return json(res,400,{error:'El archivo Excel está incompleto o no es válido.'});
+        const parsed=await parseStudentWorkbook(bytes);
+        if(parsed.errors.length)return json(res,400,{error:'Hay filas que requieren corrección. No se guardó ningún alumno.',detalles:parsed.errors.slice(0,100)});
+        const duplicates=[],seen=new Set(),rows=[];
+        for(const row of parsed.rows){const key=normalizeAreaName(row.matricula);if(seen.has(key)){duplicates.push({fila:row.rowNumber,matricula:row.matricula,motivo:'La matrícula se repite en el archivo.'});continue;}seen.add(key);rows.push(row);}
+        const currentStudents=await storage.read('alumnos'),registered=new Set(currentStudents.map(row=>normalizeAreaName(row.matricula)));
+        const newRows=rows.filter(row=>{if(!registered.has(normalizeAreaName(row.matricula)))return true;duplicates.push({fila:row.rowNumber,matricula:row.matricula,motivo:'La matrícula ya está registrada.'});return false;});
+        if(newRows.length)await storage.backup(backupDir);
+        let imported=[],concurrentDuplicates=[];
+        if(newRows.length)await storage.transact(async read=>{
+          const [students,areas,groups]=await Promise.all([read('alumnos'),read('especialidades'),read('grupos')]);
+          const currentKeys=new Set(students.map(row=>normalizeAreaName(row.matricula))),areaUpserts=[],groupUpserts=[],enrollmentUpserts=[];
+          const areaByName=new Map(areas.map(area=>[normalizeAreaName(area.nombre),area]));
+          const groupByKey=new Map(groups.map(group=>[`${group.especialidadId}|${normalizeAreaName(group.grado)}|${normalizeAreaName(group.nombre)}|${Number(group.semestre??0)}|${normalizeAreaName(group.ciclo)}`,group]));
+          imported=[];concurrentDuplicates=[];
+          for(const row of newRows){
+            const matriculaKey=normalizeAreaName(row.matricula);
+            if(currentKeys.has(matriculaKey)){concurrentDuplicates.push({fila:row.rowNumber,matricula:row.matricula,motivo:'La matrícula ya está registrada.'});continue;}
+            currentKeys.add(matriculaKey);
+            let area=areaByName.get(normalizeAreaName(row.especialidad));
+            if(!area){area={id:randomUUID(),nombre:row.especialidad,activo:true,creadoEn:new Date().toISOString(),actualizadoEn:new Date().toISOString()};areaByName.set(normalizeAreaName(row.especialidad),area);areaUpserts.push(area);}
+            else if(area.activo===false){area={...area,activo:true,actualizadoEn:new Date().toISOString()};areaByName.set(normalizeAreaName(row.especialidad),area);areaUpserts.push(area);}
+            const key=`${area.id}|${normalizeAreaName(row.grado)}|${normalizeAreaName(row.grupo)}|${row.semestre}|${normalizeAreaName(row.ciclo)}`;
+            let group=groupByKey.get(key);
+            if(!group){group={id:randomUUID(),nombre:row.grupo,grado:row.grado,ciclo:row.ciclo,semestre:row.semestre,especialidadId:area.id,activo:true,creadoEn:new Date().toISOString(),actualizadoEn:new Date().toISOString()};groupByKey.set(key,group);groupUpserts.push(group);}
+            else if(group.activo===false){group={...group,activo:true,actualizadoEn:new Date().toISOString()};groupByKey.set(key,group);groupUpserts.push(group);}
+            const now=new Date().toISOString(),student={id:randomUUID(),nombres:row.nombres,apellidos:row.apellidos,matricula:row.matricula,especialidadId:area.id,especialidadNombre:area.nombre,grado:row.grado,grupoId:group.id,grupoNombre:group.nombre,semestre:row.semestre,ciclo:row.ciclo,activo:true,creadoEn:now,actualizadoEn:now};
+            imported.push(student);enrollmentUpserts.push({id:randomUUID(),alumnoId:student.id,grupoId:group.id,ciclo:row.ciclo,estado:'activa',creadoEn:now,actualizadoEn:now});
+          }
+          const patches=[{collection:'alumnos',upsert:imported},{collection:'especialidades',upsert:areaUpserts},{collection:'grupos',upsert:groupUpserts},{collection:'inscripciones',upsert:enrollmentUpserts}].filter(patch=>patch.upsert.length);
+          return patches;
+        });
+        duplicates.push(...concurrentDuplicates);
+        await audit(user,'importar_alumnos',`${imported.length} importados; ${duplicates.length} omitidos`);
+        return json(res,200,{importados:imported.length,omitidos:duplicates.length,duplicados:duplicates.slice(0,100)});
+      }
       if(req.method==='GET'&&url.pathname==='/api/solicitudes_cuenta'){
         if(user.rol!=='direccion')return json(res,403,{error:'Solo dirección puede revisar solicitudes.'});
         const requests=(await storage.read('solicitudes_cuenta')).map(({passwordHash,passkeyCredential,...safe})=>safe);return json(res,200,requests);
@@ -418,8 +515,9 @@ const server = http.createServer(async (req, res) => {
         const input=await body(req),studentId=input.alumnoId,periodId=input.periodoId;if(!(await storage.read('alumnos')).some(x=>x.id===studentId)||!(await storage.read('periodos_evaluacion')).some(x=>x.id===periodId))return json(res,400,{error:'Alumno o periodo inválido.'});
         await storage.backup(backupDir);const published=await storage.transact(async read=>{const grades=(await read('calificaciones')).filter(x=>x.alumnoId===studentId&&x.periodoId===periodId);if(!grades.length)throw fail(409,'No hay calificaciones para publicar.');const all=await read('boletas'),old=all.find(x=>x.alumnoId===studentId&&x.periodoId===periodId);const boleta={id:old?.id??randomUUID(),alumnoId:studentId,periodoId:periodId,publicada:true,publicadaEn:new Date().toISOString(),publicadaPor:user.id,referenciasCalificacionIds:grades.map(x=>x.id)};return[{collection:'boletas',upsert:[boleta]}];});await audit(user,'publicar_boleta',studentId);const boleta=(await storage.read('boletas')).find(x=>x.alumnoId===studentId&&x.periodoId===periodId);return json(res,200,boleta);
       }
-      if(req.method==='POST'&&url.pathname==='/api/permisos'&&['alumno','tutor'].includes(user.rol)){
-        const input=await body(req),alumnoId=user.rol==='alumno'?user.personaId:String(input.alumnoId??''),student=(await storage.read('alumnos')).find(x=>x.id===alumnoId&&x.activo!==false);
+      if(req.method==='POST'&&url.pathname==='/api/permisos'){
+        if(user.rol!=='tutor')return json(res,403,{error:'Solo los tutores pueden solicitar permisos. Los alumnos únicamente pueden consultar permisos autorizados.'});
+        const input=await body(req),alumnoId=String(input.alumnoId??''),student=(await storage.read('alumnos')).find(x=>x.id===alumnoId&&x.activo!==false);
         if(!student)return json(res,404,{error:'No se encontró una ficha activa para el alumno.'});
         if(user.rol==='tutor'&&!(await storage.read('relaciones_tutores')).some(x=>x.tutorId===user.personaId&&x.alumnoId===alumnoId&&x.activa))return json(res,403,{error:'El alumno no está vinculado a tu cuenta.'});
         const validDate=typeof input.fecha==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(input.fecha)&&!Number.isNaN(Date.parse(`${input.fecha}T00:00:00Z`))&&new Date(`${input.fecha}T00:00:00Z`).toISOString().slice(0,10)===input.fecha;if(!validDate||typeof input.motivo!=='string'||input.motivo.trim().length<10||input.motivo.trim().length>2000)return json(res,400,{error:'Indica una fecha válida y describe el motivo con al menos 10 caracteres.'});

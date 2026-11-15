@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node --env-file-if-exists=.env backend/src/server.js",
     "dev": "node --env-file-if-exists=.env --watch backend/src/server.js",
@@ -12,7 +14,13 @@
     "test": "node --test"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "mongodb": "^6.21.0",
     "web-push": "^3.6.7"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
   }
 }

@@ -37,6 +37,7 @@ Cada archivo de datos contiene `{ "schemaVersion": 1, "records": [...] }` e IDs 
 - Una lista abierta desde horario origina `listas_asistencia` y, al cerrarse, incidencias en `faltas` y `retardos`.
 - `calificaciones` se vincula con alumno, materia, maestro y periodo. `boletas` registra qué calificaciones se publicaron.
 - `justificaciones` referencia la incidencia que dirección debe resolver. Mensajes internos y notificaciones enlazan destinatario y alumno.
+- La importación Excel crea fichas en `alumnos`, áreas en `especialidades`, grupos por especialidad/grado/grupo/semestre/ciclo en `grupos` y su inscripción activa en `inscripciones`. Las matrículas existentes o repetidas en el mismo archivo se reportan y omiten; las filas inválidas detienen la importación completa.
 
 Los endpoints validan las referencias y permisos aplicables. Los tutores y alumnos reciben filtros de pertenencia calculados por el backend, incluso si el cliente altera parámetros.
 
@@ -64,7 +65,7 @@ Las notificaciones automáticas disponibles son mensajes internos guardados en J
 
 ## Pruebas ejecutadas y límites
 
-`npm test` ejecutado con acceso local de loopback: 7 pruebas pasan. Cubren autenticación y aislamiento familiar, QR local, inicialización/IDs, concurrencia dentro de proceso, hash y sesión firmada, recuperación de transacciones después de reiniciar y checksum/restauración. La prueba de API incluye operaciones de cuentas y flujos HTTP de asistencia, listas, notas, boletas, justificaciones y exportación.
+`npm test` comprueba autenticación y aislamiento familiar, QR local, inicialización/IDs, concurrencia dentro de proceso, hash y sesión firmada, recuperación de transacciones después de reiniciar, checksum/restauración e importación Excel (plantilla, duplicados, validación e inscripciones). La prueba de API también incluye asistencia, listas, notas, boletas, permisos, justificaciones y exportación.
 
 Las pruebas no equivalen a una auditoría ni a un piloto. Falta verificar decodificación QR con cámaras reales, pruebas de carga y fallos físicos de disco, compatibilidad de dispositivos y revisión independiente de seguridad. No se ha generado PDF, configurado proveedor de despliegue ni verificado persistencia en un servidor externo; por tanto, no está desplegada ni aprobada para datos reales.
 

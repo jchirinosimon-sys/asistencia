@@ -10,7 +10,7 @@ La aplicación incluye pruebas de almacenamiento, autenticación y flujos HTTP. 
 
 ## Tecnologías y carpetas
 
-- Node.js 22+; driver oficial MongoDB y notificaciones Web Push.
+- Node.js 22+; driver oficial MongoDB, ExcelJS para libros `.xlsx` y notificaciones Web Push.
 - `frontend/`: interfaz HTML, CSS y JavaScript; `qr.js` genera el código QR localmente.
 - `backend/src/server.js`: servidor/API, autenticación, permisos, automatización y tareas programadas.
 - `backend/src/storage/json-storage.js`: almacenamiento JSON para desarrollo local.
@@ -48,7 +48,7 @@ La interfaz incluye un manifiesto PWA, iconos de 192 y 512 px y un service worke
 
 ### Dirección
 
-Desde el menú lateral puede revisar solicitudes de cuenta, aprobarlas vinculándolas a un expediente ya existente o rechazarlas; también puede crear cuentas directamente, alumnos, maestros, tutores, grupos, especialidades, semestres, materias, inscripciones, horarios, calendario y periodos. Puede consultar registros, desactivar/reactivar entradas, habilitar jornadas, renovar QR, publicar boletas y gestionar respaldos. Los formularios de relaciones y horarios vinculan por ID. El servidor verifica las referencias y detecta cruces de maestro, grupo o aula.
+Desde el menú lateral puede revisar solicitudes de cuenta, aprobarlas vinculándolas a un expediente ya existente o rechazarlas; también puede crear cuentas directamente, alumnos, maestros, tutores, grupos, especialidades, semestres, materias, inscripciones, horarios, calendario y periodos. En **Alumnos**, Dirección puede descargar una plantilla Excel y cargar archivos `.xlsx` de hasta 5 MB y 5,000 filas. La primera hoja debe conservar los encabezados `Nombres`, `Apellidos`, `Especialidad`, `Grado`, `Grupo`, `Matrícula`, `Semestre` y `Ciclo`; el archivo de plantilla incluye una hoja `Ejemplo` con datos ficticios. El importador valida todo el archivo antes de guardar, crea o reutiliza especialidades/grupos e inscripciones, reactiva las categorías coincidentes inactivas y omite matrículas repetidas sin sobrescribirlas. Las matrículas deben estar guardadas como texto en Excel para conservar ceros iniciales. Puede consultar registros, desactivar/reactivar entradas, habilitar jornadas, renovar QR, publicar boletas y gestionar respaldos. Los formularios de relaciones y horarios vinculan por ID. El servidor verifica las referencias y detecta cruces de maestro, grupo o aula.
 
 Para abrir QR, registra primero la fecha en Calendario con tipo `lectivo` o `jornada_especial`, habilita la jornada y pulsa **Generar código**. Se muestra un código numérico de cinco cifras y un QR escaneable que abre un enlace de esta aplicación. El generador usa una matriz QR compacta para facilitar el enfoque. El servidor guarda un HMAC del código, lo acepta durante diez minutos y limita los intentos incorrectos a diez por cuenta cada quince minutos. Rota automáticamente antes de vencer mientras la vista QR esté abierta. El alumno puede escanearlo con el lector interno o con la cámara normal del teléfono; al abrir el enlace, Asistencia conserva el código de forma temporal y registra la entrada tras iniciar sesión. El código se elimina de la barra de dirección y la API comprueba identidad, jornada, hora, duplicados y vigencia. Si no puede escanearlo, puede escribir las cinco cifras. Un QR compartido no acredita presencia física; la institución debe considerar una validación presencial adicional.
 
@@ -60,7 +60,7 @@ El maestro captura notas dentro de sus grupos y materias asignados. Dirección p
 
 ### Alumno y tutor
 
-El alumno consulta su perfil, horario, entradas, faltas/retardos, calificaciones publicadas, mensajes y avisos. El tutor ve exclusivamente alumnos con relación activa; cuando tiene varios puede seleccionar el expediente. El filtro familiar se aplica en el servidor aunque el cliente altere los parámetros.
+El alumno consulta su perfil, horario, entradas, faltas/retardos, calificaciones publicadas, permisos autorizados, mensajes y avisos; no puede solicitar permisos. Los tutores vinculados pueden enviar solicitudes de permiso para revisión de Dirección. El tutor ve exclusivamente alumnos con relación activa; cuando tiene varios puede seleccionar el expediente. El filtro familiar se aplica en el servidor aunque el cliente altere los parámetros.
 
 Las notificaciones automáticas son mensajes internos guardados en JSON; no se simulan envíos por WhatsApp, SMS o correo.
 
@@ -72,6 +72,7 @@ Las notificaciones automáticas son mensajes internos guardados en JSON; no se s
 - `GET /api/solicitudes_cuenta`, `POST /api/solicitudes_cuenta/:id/resolver` (solo dirección)
 - `GET /api/dashboard`, `GET /api/perfil`, `GET /api/mis-alumnos`
 - `GET /api/:coleccion` aplica permisos y filtros del usuario
+- `GET /api/alumnos/plantilla.xlsx`, `POST /api/alumnos/importar` (solo Dirección; importación validada de alumnos y sus inscripciones)
 - `POST /api/usuarios` crea una cuenta vinculada y almacena únicamente el hash de contraseña
 - `POST /api/:coleccion` crea catálogos autorizados; `PATCH /api/:coleccion/:id/estado` desactiva/reactiva
 - `POST /api/jornadas`, `POST /api/jornadas/:id/cerrar`
