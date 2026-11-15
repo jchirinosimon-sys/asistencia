@@ -38,6 +38,7 @@ Cada archivo de datos contiene `{ "schemaVersion": 1, "records": [...] }` e IDs 
 - `calificaciones` se vincula con alumno, materia, maestro y periodo. `boletas` registra qué calificaciones se publicaron.
 - `justificaciones` referencia la incidencia que dirección debe resolver. Mensajes internos y notificaciones enlazan destinatario y alumno.
 - La importación CSV/Excel crea fichas en `alumnos`, áreas en `especialidades`, grupos por especialidad/grado/grupo/semestre/ciclo en `grupos` y su inscripción activa en `inscripciones`. El CSV descargable usa encabezados estables y se puede completar y volver a cargar; las matrículas existentes o repetidas en el mismo archivo se reportan y omiten sin sobrescribir datos. Las filas nuevas inválidas detienen la importación completa.
+- Dirección puede leer las credenciales `DGETI|ALUMNO|matrícula` de Asistencia y el QR JSON de AUREX. El QR AUREX se relaciona con expedientes locales por nombre normalizado exacto; si hay homónimos, el personal elige el expediente tras comparar el gafete. La API solo permite consultar y registrar desde Dirección, exige confirmación visual explícita y una jornada actual abierta, registra al usuario que confirmó y rechaza duplicados por alumno/jornada. No se almacena una imagen ni se usa reconocimiento facial.
 
 Los endpoints validan las referencias y permisos aplicables. Los tutores y alumnos reciben filtros de pertenencia calculados por el backend, incluso si el cliente altera parámetros.
 
@@ -65,7 +66,7 @@ Las notificaciones automáticas disponibles son mensajes internos guardados en J
 
 ## Pruebas ejecutadas y límites
 
-`npm test` comprueba autenticación y aislamiento familiar, QR local, inicialización/IDs, concurrencia dentro de proceso, hash y sesión firmada, recuperación de transacciones después de reiniciar, checksum/restauración e importación CSV/Excel (plantillas, duplicados, validación e inscripciones). La prueba de API también incluye asistencia, listas, notas, boletas, permisos, justificaciones y exportación.
+`npm test` comprueba autenticación y aislamiento familiar, QR local, escaneo de credencial y registro manual de entrada, inicialización/IDs, concurrencia dentro de proceso, hash y sesión firmada, recuperación de transacciones después de reiniciar, checksum/restauración e importación CSV/Excel (plantillas, duplicados, validación e inscripciones). La prueba de API también incluye asistencia, listas, notas, boletas, permisos, justificaciones y exportación.
 
 Las pruebas no equivalen a una auditoría ni a un piloto. Falta verificar decodificación QR con cámaras reales, pruebas de carga y fallos físicos de disco, compatibilidad de dispositivos y revisión independiente de seguridad. No se ha generado PDF, configurado proveedor de despliegue ni verificado persistencia en un servidor externo; por tanto, no está desplegada ni aprobada para datos reales.
 
