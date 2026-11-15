@@ -28,6 +28,26 @@ const safeEqual = (a,b) => { const x=Buffer.from(a),y=Buffer.from(b);return x.le
 const hashQrToken = token => token.length===5 ? createHmac('sha256',secret).update(token).digest('hex') : createHash('sha256').update(token).digest('hex');
 const normalizeAreaName=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');
 const studentImportFields=['nombres','apellidos','especialidad','grado','grupo','matricula','semestre','ciclo'];
+const studentCsvHeaders=['Nombres','Apellidos','Especialidad','Grado','Grupo','Matrícula','Semestre','Ciclo'];
+const studentImportAliases={nombres:['nombres'],apellidos:['apellidos'],especialidad:['especialidad','especialidadnombre'],grado:['grado'],grupo:['grupo','gruponombre'],matricula:['matricula'],semestre:['semestre'],ciclo:['ciclo']};
+const csvCell=value=>{let text=typeof value==='object'&&value!==null?JSON.stringify(value):String(value??'');if(/^[=+\-@\t\r]/.test(text))text=`'${text}`;return `"${text.replaceAll('"','""')}"`;};
+function studentImportColumns(headerValues){
+  const headers=new Map();
+  for(let column=0;column<headerValues.length;column++){
+    const header=normalizeAreaName(headerValues[column]).replace(/[^a-z0-9]/g,'');
+    if(!header)continue;
+    if(headers.has(header))throw fail(400,`El encabezado «${header}» está repetido.`);
+    headers.set(header,column);
+  }
+  const columns={},missing=[];
+  for(const field of studentImportFields){
+    const matches=studentImportAliases[field].map(alias=>headers.get(alias)).filter(column=>column!==undefined);
+    if(!matches.length)missing.push(field);
+    else columns[field]=matches;
+  }
+  if(missing.length)throw fail(400,`Faltan columnas requeridas: ${missing.join(', ')}.`);
+  return columns;
+}
 function importCellText(cell){
   const value=cell.value;
   if(value&&typeof value==='object'&&('formula'in value||'sharedFormula'in value))throw fail(400,'La plantilla no admite fórmulas; pega valores en las celdas antes de importar.');
@@ -41,19 +61,75 @@ async function parseStudentWorkbook(bytes){
   const worksheet=workbook.worksheets[0];
   if(!worksheet)throw fail(400,'El archivo no contiene una hoja de cálculo.');
   if(worksheet.rowCount>5001)throw fail(413,'El archivo supera el límite de 5,000 filas.');
-  const headerRow=worksheet.getRow(1),headers=new Map();
-  for(let column=1;column<=headerRow.cellCount;column++){
-    const header=normalizeAreaName(importCellText(headerRow.getCell(column))).replace(/[^a-z0-9]/g,'');
-    if(!header)continue;
-    if(headers.has(header))throw fail(400,`El encabezado «${header}» está repetido.`);
-    headers.set(header,column);
-  }
-  const missing=studentImportFields.filter(field=>!headers.has(field));
-  if(missing.length)throw fail(400,`Faltan columnas requeridas: ${missing.join(', ')}.`);
-  const rows=[],errors=[];
+  const headerRow=worksheet.getRow(1),columns=studentImportColumns(Array.from({length:headerRow.cellCount},(_,index)=>importCellText(headerRow.getCell(index+1))));
+  const rows=[];
   for(let rowNumber=2;rowNumber<=worksheet.rowCount;rowNumber++){
-    const row=worksheet.getRow(rowNumber),record=Object.fromEntries(studentImportFields.map(field=>[field,importCellText(row.getCell(headers.get(field)))]));
+    const row=worksheet.getRow(rowNumber),record=Object.fromEntries(studentImportFields.map(field=>[field,columns[field].map(column=>importCellText(row.getCell(column+1))).find(Boolean)??'']));
     if(Object.values(record).every(value=>!value))continue;
+    rows.push({...record,rowNumber});
+  }
+  if(!rows.length)throw fail(400,'La hoja no contiene alumnos para importar.');
+  return rows;
+}
+function detectCsvDelimiter(text){
+  let quoted=false;const counts={',':0,';':0};
+  for(let index=0;index<text.length;index++){
+    const character=text[index];
+    if(quoted){if(character==='"'&&text[index+1]==='"')index++;else if(character==='"')quoted=false;continue;}
+    if(character==='"'){quoted=true;continue;}
+    if(character==='\r'||character==='\n')break;
+    if(character in counts)counts[character]++;
+  }
+  return counts[';']>counts[',']?';':',';
+}
+function parseCsvRows(text,delimiter){
+  const rows=[];let row=[],field='',quoted=false,afterQuote=false;
+  const pushRow=()=>{row.push(field);rows.push(row);row=[];field='';afterQuote=false;if(rows.length>5001)throw fail(413,'El archivo supera el límite de 5,000 filas.');};
+  for(let index=0;index<text.length;index++){
+    const character=text[index];
+    if(quoted){
+      if(character==='"'){
+        if(text[index+1]==='"'){field+='"';index++;}
+        else{quoted=false;afterQuote=true;}
+      }else field+=character;
+      continue;
+    }
+    if(afterQuote){
+      if(character===delimiter){row.push(field);field='';afterQuote=false;}
+      else if(character==='\r'||character==='\n'){if(character==='\r'&&text[index+1]==='\n')index++;pushRow();}
+      else if(character!==' '&&character!=='\t')throw fail(400,'El CSV tiene contenido no válido después de una celda entre comillas.');
+      continue;
+    }
+    if(character==='"'){
+      if(field)throw fail(400,'El CSV contiene comillas fuera de lugar.');
+      quoted=true;
+    }else if(character===delimiter){row.push(field);field='';}
+    else if(character==='\r'||character==='\n'){if(character==='\r'&&text[index+1]==='\n')index++;pushRow();}
+    else field+=character;
+  }
+  if(quoted)throw fail(400,'El CSV tiene una celda entre comillas sin cerrar.');
+  if(field||row.length||afterQuote)pushRow();
+  return rows;
+}
+function parseStudentCsv(bytes){
+  let text;
+  try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw fail(400,'El CSV debe estar codificado como UTF-8.');}
+  text=text.replace(/^\uFEFF/,'');
+  const records=parseCsvRows(text,detectCsvDelimiter(text));
+  if(!records.length)throw fail(400,'El CSV está vacío.');
+  const columns=studentImportColumns(records[0]),rows=[];
+  for(let index=1;index<records.length;index++){
+    const record=Object.fromEntries(studentImportFields.map(field=>[field,columns[field].map(column=>String(records[index][column]??'').trim()).find(Boolean)??'']));
+    if(Object.values(record).every(value=>!value))continue;
+    rows.push({...record,rowNumber:index+1});
+  }
+  if(!rows.length)throw fail(400,'El CSV no contiene alumnos para importar.');
+  return rows;
+}
+function validateStudentRows(rows){
+  const validRows=[],errors=[];
+  for(const row of rows){
+    const record=Object.fromEntries(studentImportFields.map(field=>[field,String(row[field]??'').trim()]));
     const issues=[];
     for(const field of ['nombres','apellidos','especialidad','grado','grupo','matricula','ciclo']){
       const max=field==='matricula'?40:120;
@@ -62,12 +138,10 @@ async function parseStudentWorkbook(bytes){
     }
     const semester=Number(record.semestre);
     if(!Number.isInteger(semester)||semester<1||semester>6)issues.push('semestre debe ser un número entero del 1 al 6');
-    if(issues.length)errors.push(`Fila ${rowNumber}: ${issues.join('; ')}.`);
-    else rows.push({...record,semestre:semester,rowNumber});
+    if(issues.length)errors.push(`Fila ${row.rowNumber}: ${issues.join('; ')}.`);
+    else validRows.push({...record,semestre:semester,rowNumber:row.rowNumber});
   }
-  if(errors.length)return{rows,errors};
-  if(!rows.length)throw fail(400,'La hoja no contiene alumnos para importar.');
-  return{rows,errors:[]};
+  return{rows:validRows,errors};
 }
 function validateFields(collection, record){
   const required={alumnos:['nombres','apellidos','matricula'],maestros:['nombres','apellidos'],tutores:['nombres','apellidos'],relaciones_tutores:['tutorId','alumnoId','parentesco'],grupos:['nombre','ciclo'],especialidades:['nombre'],semestres:['nombre'],materias:['nombre'],inscripciones:['alumnoId','grupoId','ciclo'],avisos_escolares:['titulo','contenido'],horarios:['diaSemana','horaInicio','horaFin','materiaId','maestroId','grupoId'],calendario_escolar:['fecha','tipo'],periodos_evaluacion:['nombre','iniciaEn','terminaEn']}[collection]??[];
@@ -223,19 +297,32 @@ const server = http.createServer(async (req, res) => {
         const output=Buffer.from(await workbook.xlsx.writeBuffer());
         res.writeHead(200,{...securityHeaders,'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','content-disposition':'attachment; filename="plantilla-alumnos.xlsx"','cache-control':'no-store'});return res.end(output);
       }
+      if(req.method==='GET'&&url.pathname==='/api/alumnos/plantilla.csv'){
+        if(user.rol!=='direccion')return json(res,403,{error:'Solo Dirección puede descargar la plantilla de alumnos.'});
+        const csv='\uFEFF'+studentCsvHeaders.map(csvCell).join(',')+'\r\n';
+        res.writeHead(200,{...securityHeaders,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="plantilla-alumnos.csv"','cache-control':'no-store'});return res.end(csv);
+      }
       if(req.method==='POST'&&url.pathname==='/api/alumnos/importar'){
         if(user.rol!=='direccion')return json(res,403,{error:'Solo Dirección puede importar alumnos.'});
         const input=await body(req,8_000_000);
-        if(typeof input.nombreArchivo!=='string'||!input.nombreArchivo.toLowerCase().endsWith('.xlsx')||typeof input.contenido!=='string'||!input.contenido||!/^[A-Za-z0-9+/]+={0,2}$/.test(input.contenido))return json(res,400,{error:'Selecciona un archivo .xlsx válido.'});
+        const filename=typeof input.nombreArchivo==='string'?input.nombreArchivo.toLowerCase():'',isWorkbook=filename.endsWith('.xlsx'),isCsv=filename.endsWith('.csv');
+        if((!isWorkbook&&!isCsv)||typeof input.contenido!=='string'||!input.contenido||!/^[A-Za-z0-9+/]+={0,2}$/.test(input.contenido))return json(res,400,{error:'Selecciona un archivo .csv o .xlsx válido.'});
         if(input.contenido.length>7_000_000)return json(res,413,{error:'El archivo no puede superar 5 MB.'});
         const bytes=Buffer.from(input.contenido,'base64');
-        if(bytes.length>5_000_000||bytes.length<4||bytes.subarray(0,2).toString('hex')!=='504b'||bytes.toString('base64').replace(/=+$/,'')!==input.contenido.replace(/=+$/,''))return json(res,400,{error:'El archivo Excel está incompleto o no es válido.'});
-        const parsed=await parseStudentWorkbook(bytes);
+        if(bytes.length>5_000_000||bytes.length<1||bytes.toString('base64').replace(/=+$/,'')!==input.contenido.replace(/=+$/,''))return json(res,400,{error:'El archivo está incompleto o no es válido.'});
+        if(isWorkbook&&bytes.subarray(0,2).toString('hex')!=='504b')return json(res,400,{error:'El archivo Excel está incompleto o no es válido.'});
+        const parsedRows=isCsv?parseStudentCsv(bytes):await parseStudentWorkbook(bytes);
+        const duplicates=[],seen=new Set(),candidates=[],currentStudents=await storage.read('alumnos'),registered=new Set(currentStudents.map(row=>normalizeAreaName(row.matricula)));
+        for(const row of parsedRows){
+          const key=normalizeAreaName(row.matricula);
+          if(key&&seen.has(key)){duplicates.push({fila:row.rowNumber,matricula:row.matricula,motivo:'La matrícula se repite en el archivo.'});continue;}
+          if(key)seen.add(key);
+          if(key&&registered.has(key)){duplicates.push({fila:row.rowNumber,matricula:row.matricula,motivo:'La matrícula ya está registrada.'});continue;}
+          candidates.push(row);
+        }
+        const parsed=validateStudentRows(candidates);
         if(parsed.errors.length)return json(res,400,{error:'Hay filas que requieren corrección. No se guardó ningún alumno.',detalles:parsed.errors.slice(0,100)});
-        const duplicates=[],seen=new Set(),rows=[];
-        for(const row of parsed.rows){const key=normalizeAreaName(row.matricula);if(seen.has(key)){duplicates.push({fila:row.rowNumber,matricula:row.matricula,motivo:'La matrícula se repite en el archivo.'});continue;}seen.add(key);rows.push(row);}
-        const currentStudents=await storage.read('alumnos'),registered=new Set(currentStudents.map(row=>normalizeAreaName(row.matricula)));
-        const newRows=rows.filter(row=>{if(!registered.has(normalizeAreaName(row.matricula)))return true;duplicates.push({fila:row.rowNumber,matricula:row.matricula,motivo:'La matrícula ya está registrada.'});return false;});
+        const newRows=parsed.rows;
         if(newRows.length)await storage.backup(backupDir);
         let imported=[],concurrentDuplicates=[];
         if(newRows.length)await storage.transact(async read=>{
@@ -350,7 +437,15 @@ const server = http.createServer(async (req, res) => {
       if(req.method==='GET'&&exportMatch){
         const collection=exportMatch[1],exportable=['alumnos','maestros','tutores','grupos','materias','horarios','asistencias','listas_asistencia','faltas','retardos','justificaciones','calificaciones','boletas','mensajes','avisos_escolares'];if(!exportable.includes(collection))return json(res,403,{error:'Esta categoría no se puede exportar.'});
         let records=await authorizedRecords(collection,user,url.searchParams.get('alumnoId'));for(const key of ['grupoId','materiaId','fecha','estado']){const value=url.searchParams.get(key);if(value)records=records.filter(row=>String(row[key]??'')===value);}if(records.length>50_000)return json(res,413,{error:'Aplica filtros para exportar como máximo 50,000 registros.'});
-        const keys=[...new Set(records.flatMap(row=>Object.keys(row)))].filter(key=>!['passwordHash','token','secret','tokenHash'].includes(key));const cell=value=>{let text=typeof value==='object'&&value!==null?JSON.stringify(value):String(value??'');if(/^[=+\-@\t\r]/.test(text))text=`'${text}`;return `"${text.replaceAll('"','""')}"`;};const csv='\uFEFF'+[keys.map(cell).join(','),...records.map(row=>keys.map(key=>cell(row[key])).join(','))].join('\r\n');
+        let csv;
+        if(collection==='alumnos'){
+          const [groups,areas]=await Promise.all([storage.read('grupos'),storage.read('especialidades')]),groupsById=new Map(groups.map(group=>[group.id,group])),areasById=new Map(areas.map(area=>[area.id,area]));
+          const rows=records.map(student=>{const group=groupsById.get(student.grupoId);return[student.nombres,student.apellidos,student.especialidadNombre??student.especialidad??areasById.get(student.especialidadId)?.nombre??'',student.grado??group?.grado??'',student.grupoNombre??group?.nombre??'',student.matricula,student.semestre??group?.semestre??'',student.ciclo??group?.ciclo??''];});
+          csv='\uFEFF'+[studentCsvHeaders,...rows].map(row=>row.map(csvCell).join(',')).join('\r\n');
+        }else{
+          const keys=[...new Set(records.flatMap(row=>Object.keys(row)))].filter(key=>!['passwordHash','token','secret','tokenHash'].includes(key));
+          csv='\uFEFF'+[keys.map(csvCell).join(','),...records.map(row=>keys.map(key=>csvCell(row[key])).join(','))].join('\r\n');
+        }
         await audit(user,'exportar',collection);res.writeHead(200,{...securityHeaders,'content-type':'text/csv; charset=utf-8','content-disposition':`attachment; filename="${collection}.csv"`,'cache-control':'no-store'});return res.end(csv);
       }
       const deleteMatch=url.pathname.match(/^\/api\/(alumnos|avisos_escolares|mensajes)\/([^/]+)$/);
