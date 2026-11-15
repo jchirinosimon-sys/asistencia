@@ -145,7 +145,7 @@ function validateStudentRows(rows){
 }
 function parseCredentialQr(value){
   if(typeof value!=='string'||value.trim().length>2000)throw fail(400,'El QR de credencial no es válido.');
-  const raw=value.trim(),matriculaMatch=raw.match(/^DGETI\|ALUMNO\|(.+)$/i);
+  const raw=value.trim(),matriculaMatch=raw.match(/^(?:GENIX|DGETI)\|ALUMNO\|(.+)$/i);
   if(matriculaMatch){
     const matricula=matriculaMatch[1].trim();
     if(!matricula||matricula.length>40)throw fail(400,'La matrícula del QR no es válida.');

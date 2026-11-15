@@ -1,19 +1,19 @@
-const CACHE_NAME = 'asistencia-shell-v11';
+const CACHE_NAME = 'genix-asis-shell-v12';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/styles.css',
+  '/branding.css',
   '/modules.css',
   '/app.js',
   '/qr.js',
   '/pwa.js',
   '/manifest.webmanifest',
-  '/icons/dgeti-app-192.png',
-  '/icons/dgeti-app-512.png',
+  '/icons/genix-app-192.png',
+  '/icons/genix-app-512.png',
   '/icons/logo.svg',
-  '/icons/dgeti-logo.png',
-  '/icons/dgeti-maskable-192.png',
-  '/icons/dgeti-maskable-512.png'
+  '/icons/genix-maskable-192.png',
+  '/icons/genix-maskable-512.png'
 ];
 
 self.addEventListener('install', event => {
@@ -24,21 +24,21 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(key => /^(gestion-escolar-shell-|asistencia-shell-)/.test(key) && key !== CACHE_NAME).map(key => caches.delete(key))))
+      .then(keys => Promise.all(keys.filter(key => /^(gestion-escolar-shell-|asistencia-shell-|genix-asis-shell-)/.test(key) && key !== CACHE_NAME).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('push', event => {
   let data = {};
-  try { data = event.data?.json() ?? {}; } catch { data = { title: 'Asistencia', body: 'Tienes un mensaje nuevo.' }; }
+  try { data = event.data?.json() ?? {}; } catch { data = { title: 'Genix-asis', body: 'Tienes un mensaje nuevo.' }; }
   const url = typeof data.url === 'string' && data.url.startsWith('/') ? data.url : '/';
-  event.waitUntil(self.registration.showNotification(data.title ?? 'Asistencia', {
+  event.waitUntil(self.registration.showNotification(data.title ?? 'Genix-asis', {
     body: data.body ?? 'Tienes un mensaje nuevo.',
-    icon: '/icons/dgeti-app-192.png',
-    badge: '/icons/dgeti-app-192.png',
+    icon: '/icons/genix-app-192.png',
+    badge: '/icons/genix-app-192.png',
     data: { url },
-    tag: 'asistencia-' + String(data.id ?? Date.now())
+    tag: 'genix-asis-' + String(data.id ?? Date.now())
   }));
 });
 

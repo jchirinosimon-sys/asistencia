@@ -17,7 +17,7 @@ export async function sendPushNotifications(storage, userIds, message, env = pro
 
   const tipo = message.tipo === 'aviso' ? 'aviso' : message.tipo === 'prueba' ? 'prueba' : message.tipo === 'llegada' ? 'llegada' : message.tipo === 'falta' ? 'falta' : 'mensaje';
   const payload = JSON.stringify({
-    title: tipo === 'aviso' ? 'Asistencia · Aviso escolar' : tipo === 'prueba' ? 'Asistencia · Prueba' : tipo === 'llegada' ? 'Asistencia · Llegada a la escuela' : tipo === 'falta' ? 'Asistencia · Falta registrada' : 'Asistencia · Nuevo mensaje',
+    title: tipo === 'aviso' ? 'Genix-asis · Aviso escolar' : tipo === 'prueba' ? 'Genix-asis · Prueba' : tipo === 'llegada' ? 'Genix-asis · Llegada a la escuela' : tipo === 'falta' ? 'Genix-asis · Falta registrada' : 'Genix-asis · Nuevo mensaje',
     body: message.detalle ?? message.asunto,
     url: tipo === 'aviso' ? '/?aviso=' + encodeURIComponent(message.id) : '/?mensaje=' + encodeURIComponent(message.id)
   });
