@@ -379,9 +379,54 @@ const server = http.createServer(async (req, res) => {
         await audit(user,'importar_alumnos',`${imported.length} importados; ${duplicates.length} omitidos`);
         return json(res,200,{importados:imported.length,omitidos:duplicates.length,duplicados:duplicates.slice(0,100)});
       }
+      if(req.method==='GET'&&url.pathname==='/api/personas-disponibles'){
+        if(user.rol!=='direccion')return json(res,403,{error:'Solo dirección puede consultar expedientes disponibles.'});
+        const role=url.searchParams.get('rol'),collection={alumno:'alumnos',maestro:'maestros',tutor:'tutores'}[role];
+        if(!collection)return json(res,400,{error:'Selecciona un tipo de cuenta válido.'});
+        const [people,accounts,areas,groups,enrollments]=await Promise.all([storage.read(collection),storage.read('usuarios'),storage.read('especialidades'),storage.read('grupos'),storage.read('inscripciones')]);
+        let available=people.filter(person=>person.activo!==false&&!accounts.some(account=>account.rol===role&&account.personaId===person.id&&account.activo)).map(person=>{
+          const groupId=person.grupoId??enrollments.find(item=>item.alumnoId===person.id&&item.estado==='activa')?.grupoId,group=groups.find(item=>item.id===groupId),area=areas.find(item=>item.id===(person.especialidadId??group?.especialidadId));
+          return{id:person.id,nombre:[person.nombres,person.apellidos].filter(Boolean).join(' ')||person.nombre||'Nombre no disponible',matricula:person.matricula??'',correo:person.correo??'',numeroEmpleado:person.numeroEmpleado??'',especialidadNombre:person.especialidadNombre??area?.nombre??person.especialidad??'',grupoNombre:person.grupoNombre??group?.nombre??''};
+        }).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{sensitivity:'base'}));
+        const query=url.searchParams.get('q')?.trim().toLocaleLowerCase('es');if(query)available=available.filter(item=>[item.nombre,item.matricula,item.correo,item.numeroEmpleado,item.especialidadNombre,item.grupoNombre].some(value=>String(value??'').toLocaleLowerCase('es').includes(query)));
+        const total=available.length,limit=Math.min(200,Math.max(1,Number(url.searchParams.get('limit')??50))),offset=Math.max(0,Number(url.searchParams.get('offset')??0));if(!Number.isFinite(limit)||!Number.isFinite(offset))return json(res,400,{error:'Paginación inválida.'});
+        return json(res,200,available.slice(offset,offset+limit),{'x-total-count':String(total),'x-limit':String(limit),'x-offset':String(offset)});
+      }
       if(req.method==='GET'&&url.pathname==='/api/solicitudes_cuenta'){
         if(user.rol!=='direccion')return json(res,403,{error:'Solo dirección puede revisar solicitudes.'});
-        const requests=(await storage.read('solicitudes_cuenta')).map(({passwordHash,passkeyCredential,...safe})=>safe);return json(res,200,requests);
+        let requests=(await storage.read('solicitudes_cuenta')).map(({passwordHash,passkeyCredential,...safe})=>safe);
+        const state=url.searchParams.get('estado');if(state)requests=requests.filter(item=>item.estado===state);
+        const query=url.searchParams.get('q')?.trim().toLocaleLowerCase('es');if(query)requests=requests.filter(item=>[item.nombre,item.email,item.rolSolicitado,item.matricula].some(value=>String(value??'').toLocaleLowerCase('es').includes(query)));
+        const total=requests.length,limit=Math.min(200,Math.max(1,Number(url.searchParams.get('limit')??50))),offset=Math.max(0,Number(url.searchParams.get('offset')??0));if(!Number.isFinite(limit)||!Number.isFinite(offset))return json(res,400,{error:'Paginación inválida.'});
+        return json(res,200,requests.slice(offset,offset+limit),{'x-total-count':String(total),'x-limit':String(limit),'x-offset':String(offset)});
+      }
+      const requestCandidatesMatch=url.pathname.match(/^\/api\/solicitudes_cuenta\/([^/]+)\/candidatos$/);
+      if(req.method==='GET'&&requestCandidatesMatch){
+        if(user.rol!=='direccion')return json(res,403,{error:'Solo dirección puede consultar expedientes para solicitudes.'});
+        const request=(await storage.read('solicitudes_cuenta')).find(item=>item.id===requestCandidatesMatch[1]&&item.estado==='pendiente');
+        if(!request)return json(res,404,{error:'La solicitud no existe o ya fue atendida.'});
+        const collection={alumno:'alumnos',maestro:'maestros',tutor:'tutores'}[request.rolSolicitado];
+        if(!collection)return json(res,400,{error:'El tipo de cuenta no admite vinculación con un expediente.'});
+        const [people,accounts,areas,groups,enrollments]=await Promise.all([storage.read(collection),storage.read('usuarios'),storage.read('especialidades'),storage.read('grupos'),storage.read('inscripciones')]);
+        const available=people.filter(person=>person.activo!==false&&!accounts.some(account=>account.rol===request.rolSolicitado&&account.personaId===person.id&&account.activo)).map(person=>{
+          const groupId=person.grupoId??enrollments.find(item=>item.alumnoId===person.id&&item.estado==='activa')?.grupoId;
+          const group=groups.find(item=>item.id===groupId);
+          const area=areas.find(item=>item.id===(person.especialidadId??group?.especialidadId));
+          const name=[person.nombres,person.apellidos].filter(Boolean).join(' ')||person.nombre||'Nombre no disponible';
+          const assignedAreaId=person.especialidadId??group?.especialidadId,requestArea=areas.find(item=>item.id===request.especialidadId),storedAreaName=person.especialidadNombre??person.especialidad??'';
+          return {
+            id:person.id,
+            nombre:name,
+            matricula:person.matricula??'',
+            correo:person.correo??'',
+            telefono:person.telefono??'',
+            numeroEmpleado:person.numeroEmpleado??'',
+            especialidadNombre:person.especialidadNombre??area?.nombre??person.especialidad??'',
+            grupoNombre:person.grupoNombre??group?.nombre??'',
+            compatibleEspecialidad:request.rolSolicitado!=='alumno'||Boolean(requestArea&&(!assignedAreaId||assignedAreaId===request.especialidadId)&&(!storedAreaName||normalizeAreaName(storedAreaName)===normalizeAreaName(requestArea.nombre)))
+          };
+        }).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{sensitivity:'base'}));
+        return json(res,200,available);
       }
       const accountRequestMatch=url.pathname.match(/^\/api\/solicitudes_cuenta\/([^/]+)\/resolver$/);
       if(req.method==='POST'&&accountRequestMatch){
@@ -392,7 +437,7 @@ const server = http.createServer(async (req, res) => {
           const requests=await read('solicitudes_cuenta'),request=requests.find(x=>x.id===accountRequestMatch[1]);if(!request||request.estado!=='pendiente')throw fail(409,'La solicitud no existe o ya fue atendida.');
           const {passwordHash,passkeyCredential:_legacyPasskeyCredential,...requestInfo}=request;
           if(input.decision==='rechazar'){resolvedRequest={...requestInfo,estado:'rechazada',resueltaPor:user.id,resueltaEn:new Date().toISOString()};return[{collection:'solicitudes_cuenta',upsert:[resolvedRequest]}];}
-          const personCollection={alumno:'alumnos',maestro:'maestros',tutor:'tutores'}[request.rolSolicitado];let personaId=typeof input.personaId==='string'?input.personaId.trim():'';if(request.rolSolicitado==='alumno'){const area=(await read('especialidades')).find(x=>x.id===request.especialidadId&&x.activo!==false);if(!area)throw fail(409,'La especialidad ya no existe o está inactiva. Rechaza la solicitud o reactiva el área.');const matricula=typeof request.matricula==='string'?request.matricula.trim().toLocaleLowerCase('es'):'';const student=(await read('alumnos')).find(x=>String(x.matricula??'').trim().toLocaleLowerCase('es')===matricula&&x.activo!==false);if(!student)throw fail(400,'No existe un alumno activo con esa matrícula. Verifica la matrícula con la institución.');if(student.especialidadId&&student.especialidadId!==request.especialidadId)throw fail(409,'La especialidad de la matrícula no coincide con la indicada en la solicitud.');personaId=student.id;}if(!personaId||!(await read(personCollection)).some(x=>x.id===personaId&&x.activo!==false))throw fail(400,'Dirección debe vincular la solicitud con un expediente activo existente.');
+          const personCollection={alumno:'alumnos',maestro:'maestros',tutor:'tutores'}[request.rolSolicitado];const personaId=typeof input.personaId==='string'?input.personaId.trim():'';const person=personaId&&(await read(personCollection)).find(x=>x.id===personaId&&x.activo!==false);if(!person)throw fail(400,'Selecciona un expediente activo existente antes de aprobar la solicitud.');if(request.rolSolicitado==='alumno'){const area=(await read('especialidades')).find(x=>x.id===request.especialidadId&&x.activo!==false);if(!area)throw fail(409,'La especialidad ya no existe o está inactiva. Rechaza la solicitud o reactiva el área.');const groups=await read('grupos'),enrollments=await read('inscripciones'),group=groups.find(x=>x.id===(person.grupoId??enrollments.find(item=>item.alumnoId===person.id&&item.estado==='activa')?.grupoId)),assignedAreaId=person.especialidadId??group?.especialidadId,storedAreaName=person.especialidadNombre??person.especialidad??'';if((assignedAreaId&&assignedAreaId!==request.especialidadId)||(storedAreaName&&normalizeAreaName(storedAreaName)!==normalizeAreaName(area.nombre)))throw fail(409,'La especialidad del expediente no coincide con la indicada en la solicitud. Selecciona un alumno compatible.');}
           const accounts=await read('usuarios');if(accounts.some(x=>x.email===request.email))throw fail(409,'Ya existe una cuenta con ese correo.');if(accounts.some(x=>x.rol===request.rolSolicitado&&x.personaId===personaId&&x.activo))throw fail(409,'Ese expediente ya tiene una cuenta activa.');
           approvedUser={id:randomUUID(),email:request.email,nombre:request.nombre,rol:request.rolSolicitado,personaId,activo:true,...(request.rolSolicitado==='alumno'?{especialidadId:request.especialidadId}:{}),passwordHash,creadoEn:new Date().toISOString(),aprobadoPor:user.id};
           resolvedRequest={...requestInfo,estado:'aprobada',usuarioId:approvedUser.id,resueltaPor:user.id,resueltaEn:new Date().toISOString()};
@@ -431,10 +476,19 @@ const server = http.createServer(async (req, res) => {
       if(req.method==='GET'&&url.pathname==='/api/mis-vinculos'&&user.rol==='tutor'){
         const [links,students]=await Promise.all([storage.read('relaciones_tutores'),storage.read('alumnos')]);return json(res,200,links.filter(x=>x.tutorId===user.personaId).map(link=>{const student=students.find(x=>x.id===link.alumnoId);return{id:link.id,alumnoNombre:link.alumnoNombreSnapshot??(student?[student.nombres,student.apellidos].filter(Boolean).join(' '):'Alumno no disponible'),matricula:link.matricula??student?.matricula??'',parentesco:link.parentesco,estado:link.activa?'activo':'pendiente de aprobación',activa:Boolean(link.activa)}}));
       }
+      if(req.method==='GET'&&url.pathname==='/api/relaciones_tutores/alumno'&&user.rol==='tutor'){
+        const matricula=url.searchParams.get('matricula')?.trim()??'';if(!matricula||matricula.length>40)return json(res,400,{error:'Escribe una matrícula válida para buscar al alumno.'});
+        const [students,links,groups,areas,enrollments]=await Promise.all(['alumnos','relaciones_tutores','grupos','especialidades','inscripciones'].map(name=>storage.read(name)));
+        const student=students.find(item=>item.activo!==false&&String(item.matricula??'').trim().toLocaleLowerCase('es')===matricula.toLocaleLowerCase('es'));
+        if(!student)return json(res,404,{error:'No se encontró un alumno activo con esa matrícula. Verifícala con la institución.'});
+        if(links.some(link=>link.tutorId===user.personaId&&link.alumnoId===student.id))return json(res,409,{error:'Ya existe una solicitud o vínculo para ese alumno.'});
+        const groupId=student.grupoId??enrollments.find(item=>item.alumnoId===student.id&&item.estado==='activa')?.grupoId,group=groups.find(item=>item.id===groupId),area=areas.find(item=>item.id===(student.especialidadId??group?.especialidadId));
+        return json(res,200,{id:student.id,nombres:student.nombres,apellidos:student.apellidos,matricula:student.matricula,especialidadNombre:student.especialidadNombre??area?.nombre??student.especialidad??'',grupoNombre:student.grupoNombre??group?.nombre??''});
+      }
       if(req.method==='POST'&&url.pathname==='/api/relaciones_tutores/vincular'&&user.rol==='tutor'){
         const input=await body(req),matricula=typeof input.matricula==='string'?input.matricula.trim(): '',parentesco=typeof input.parentesco==='string'?input.parentesco.trim():'';
-        if(!matricula||matricula.length>40||!parentesco||parentesco.length>40)return json(res,400,{error:'Escribe la matrícula del alumno y tu parentesco.'});
-        const student=(await storage.read('alumnos')).find(x=>x.activo!==false&&String(x.matricula??'').trim().toLocaleLowerCase('es')===matricula.toLocaleLowerCase('es'));if(!student)return json(res,404,{error:'No se encontró un alumno activo con esa matrícula. Verifícala con la institución.'});
+        if((typeof input.alumnoId!=='string'&&!matricula)||matricula.length>40||!parentesco||parentesco.length>40)return json(res,400,{error:'Selecciona un alumno y especifica tu parentesco.'});
+        const student=(await storage.read('alumnos')).find(x=>x.activo!==false&&(typeof input.alumnoId==='string'?x.id===input.alumnoId:String(x.matricula??'').trim().toLocaleLowerCase('es')===matricula.toLocaleLowerCase('es')));if(!student)return json(res,404,{error:'No se encontró un alumno activo. Vuelve a buscar su matrícula.'});
         const linked=await storage.read('relaciones_tutores');if(linked.some(x=>x.tutorId===user.personaId&&x.alumnoId===student.id))return json(res,409,{error:'Ya existe una solicitud o vínculo para ese alumno.'});
         const relation={id:randomUUID(),tutorId:user.personaId,alumnoId:student.id,parentesco,activa:false,estado:'pendiente',matricula:student.matricula,alumnoNombreSnapshot:[student.nombres,student.apellidos].filter(Boolean).join(' '),solicitadaPor:user.id,solicitadaEn:new Date().toISOString()};await storage.update('relaciones_tutores',rows=>[...rows,relation]);await audit(user,'solicitar_vinculo_alumno',relation.id);return json(res,202,{mensaje:'Solicitud enviada a Dirección. El expediente aparecerá en tu cuenta cuando aprueben el vínculo.'});
       }
@@ -530,7 +584,7 @@ const server = http.createServer(async (req, res) => {
         if(collection==='operaciones')return json(res,403,{error:'Este archivo interno no es consultable por la API.'});
         const allowed = user.rol === 'direccion' || ['avisos_escolares','horarios','asistencias','faltas','retardos','listas_asistencia','calificaciones','boletas','mensajes','justificaciones','permisos'].includes(collection);
         if (!allowed) return json(res, 403, { error: 'Sin permiso para consultar esta información.' });
-        const selectedStudentId=url.searchParams.get('alumnoId');let results=await authorizedRecords(collection,user,selectedStudentId);if(collection==='usuarios')results=results.map(({passwordHash,...safe})=>safe);
+        const selectedStudentId=url.searchParams.get('alumnoId');let results=await authorizedRecords(collection,user,selectedStudentId);if(collection==='usuarios')results=results.map(({passwordHash,...safe})=>safe);if(collection==='relaciones_tutores'&&user.rol==='direccion'){const [tutors,students]=await Promise.all([storage.read('tutores'),storage.read('alumnos')]);results=results.map(link=>{const tutor=tutors.find(person=>person.id===link.tutorId),student=students.find(person=>person.id===link.alumnoId);return{...link,tutorNombre:[tutor?.nombres,tutor?.apellidos].filter(Boolean).join(' ')||'Tutor no disponible',alumnoNombreSnapshot:link.alumnoNombreSnapshot||[student?.nombres,student?.apellidos].filter(Boolean).join(' ')||'Alumno no disponible'};});}const selectedId=url.searchParams.get('id');if(selectedId)results=results.filter(row=>row.id===selectedId);
         for(const key of ['grupoId','materiaId','especialidadId','semestreId','periodoId','estado','fecha']){const value=url.searchParams.get(key);if(value)results=results.filter(row=>String(row[key]??'')===value);}
         const query=url.searchParams.get('q')?.trim().toLocaleLowerCase('es');if(query)results=results.filter(row=>Object.entries(row).filter(([key])=>/nombre|matricula|titulo|materia|asunto/i.test(key)||(collection==='usuarios'&&['email','rol'].includes(key))).some(([,value])=>String(value??'').toLocaleLowerCase('es').includes(query)));
         if(collection==='usuarios'){const roleOrder={alumno:0,maestro:1,tutor:2,direccion:3};results.sort((a,b)=>(roleOrder[a.rol]??9)-(roleOrder[b.rol]??9)||String(a.nombre??'').localeCompare(String(b.nombre??''),'es',{sensitivity:'base'}));}
@@ -654,6 +708,18 @@ const server = http.createServer(async (req, res) => {
         const approvedPermits=await storage.read('permisos');for(const student of closed.alumnos){if(student.estado==='ausente'){const permit=approvedPermits.find(x=>x.alumnoId===student.alumnoId&&x.fecha===list.fecha&&x.estado==='autorizado');snapshots.push({collection:'faltas',record:{id:`falta_${list.id}_${student.alumnoId}`,alumnoId:student.alumnoId,nombreSnapshot:student.nombreSnapshot,fecha:list.fecha,grupoId:list.grupoId,materiaId:list.materiaId,sesionId:list.sesionId,maestroId:list.maestroId,estado:permit?'justificada':'confirmada',...(permit?{permisoId:permit.id}:{}),listaId:list.id,creadoEn:new Date().toISOString()}});}if(student.estado==='retardo')snapshots.push({collection:'retardos',record:{id:`retardo_${list.id}_${student.alumnoId}`,alumnoId:student.alumnoId,nombreSnapshot:student.nombreSnapshot,fecha:list.fecha,grupoId:list.grupoId,materiaId:list.materiaId,sesionId:list.sesionId,maestroId:list.maestroId,estado:'registrado',listaId:list.id,creadoEn:new Date().toISOString()}});}
         await storage.backup(backupDir);const patches=[{collection:'listas_asistencia',upsert:[closed]},...['faltas','retardos'].map(collection=>({collection,upsert:snapshots.filter(x=>x.collection===collection).map(x=>x.record)}))];await storage.transact(async read=>{const latest=(await read('listas_asistencia')).find(x=>x.id===list.id);if(!latest||latest.estado!=='abierta')throw fail(409,'La lista ya se cerró en otra solicitud.');return patches});for(const student of closed.alumnos.filter(item=>item.estado==='ausente'))await notifyTutorsOfStudentEvent(student.alumnoId,{id:`falta_${list.id}_${student.alumnoId}`,tipo:'falta',at:new Date().toISOString(),materiaNombre:list.materiaNombre??list.materiaSnapshot??list.materiaId});await audit(user,'cerrar_lista',list.id);return json(res,200,closed);
       }
+      if(req.method==='GET'&&url.pathname==='/api/calificaciones/opciones'&&user.rol==='maestro'){
+        const [schedules,groups,subjects,students,enrollments,periods]=await Promise.all(['horarios','grupos','materias','alumnos','inscripciones','periodos_evaluacion'].map(name=>storage.read(name)));
+        const assigned=schedules.filter(item=>item.activo!==false&&item.maestroId===user.personaId),groupIds=new Set(assigned.map(item=>item.grupoId)),subjectIds=new Set(assigned.map(item=>item.materiaId));
+        const eligibleStudentIds=new Set(enrollments.filter(item=>groupIds.has(item.grupoId)&&item.estado==='activa').map(item=>item.alumnoId));
+        return json(res,200,{
+          alumnos:students.filter(item=>eligibleStudentIds.has(item.id)&&item.activo!==false).map(item=>{const enrollment=enrollments.find(link=>link.alumnoId===item.id&&link.estado==='activa'),group=groups.find(entry=>entry.id===enrollment?.grupoId);return{id:item.id,nombres:item.nombres,apellidos:item.apellidos,nombre:[item.nombres,item.apellidos].filter(Boolean).join(' '),matricula:item.matricula??'',grupoId:group?.id,grupoNombre:group?.nombre??''};}),
+          grupos:groups.filter(item=>groupIds.has(item.id)&&item.activo!==false).map(item=>({id:item.id,nombre:item.nombre,ciclo:item.ciclo??'',semestre:item.semestre??''})),
+          materias:subjects.filter(item=>subjectIds.has(item.id)&&item.activo!==false).map(item=>({id:item.id,nombre:item.nombre,clave:item.clave??''})),
+          periodos:periods.filter(item=>item.estado!=='cerrado').map(item=>({id:item.id,nombre:item.nombre,iniciaEn:item.iniciaEn,terminaEn:item.terminaEn})),
+          asignaciones:assigned.map(item=>({grupoId:item.grupoId,materiaId:item.materiaId}))
+        });
+      }
       if(req.method==='POST'&&url.pathname==='/api/calificaciones'&&user.rol==='maestro'){
         const input=await body(req),student=(await storage.read('alumnos')).find(x=>x.id===input.alumnoId),period=(await storage.read('periodos_evaluacion')).find(x=>x.id===input.periodoId&&x.estado!=='cerrado');if(!student||!period)return json(res,400,{error:'Alumno o periodo de evaluación inválido.'});
         const groupId=input.grupoId??(await storage.read('inscripciones')).find(x=>x.alumnoId===student.id&&x.estado==='activa')?.grupoId;
@@ -709,14 +775,25 @@ const server = http.createServer(async (req, res) => {
         if (!email.includes('@') || typeof input.nombre !== 'string' || !input.nombre.trim() || !roles.includes(input.rol) || typeof input.password !== 'string' || input.password.length < 12) return json(res, 400, { error: 'Indica nombre, correo válido, rol y contraseña de al menos 12 caracteres.' });
         let personaId = input.personaId;
         if(input.rol==='alumno'){
-          const matricula=typeof input.matricula==='string'?input.matricula.trim().toLocaleLowerCase('es'):'';
-          const student=(await storage.read('alumnos')).find(person=>String(person.matricula??'').trim().toLocaleLowerCase('es')===matricula&&person.activo!==false);
-          if(!student)return json(res,400,{error:'No existe un alumno activo con esa matrícula.'});
-          const area=(await storage.read('especialidades')).find(x=>x.activo!==false&&normalizeAreaName(x.nombre)===normalizeAreaName(input.especialidad));if(!area)return json(res,400,{error:'La especialidad no coincide con un área activa.'});if(student.especialidadId&&student.especialidadId!==area.id)return json(res,409,{error:'La especialidad no coincide con el expediente de esa matrícula.'});
-          personaId=student.id;input.especialidadId=area.id;
+          const students=await storage.read('alumnos'),student=typeof personaId==='string'?students.find(person=>person.id===personaId&&person.activo!==false):null;
+          if(student){
+           const groups=await storage.read('grupos'),enrollments=await storage.read('inscripciones'),group=groups.find(item=>item.id===(student.grupoId??enrollments.find(item=>item.alumnoId===student.id&&item.estado==='activa')?.grupoId)),assignedAreaId=student.especialidadId??group?.especialidadId;
+           const areas=await storage.read('especialidades'),storedAreaName=student.especialidadNombre??student.especialidad??'';let area=assignedAreaId?areas.find(item=>item.id===assignedAreaId&&item.activo!==false):null;
+           if(area&&storedAreaName&&normalizeAreaName(storedAreaName)!==normalizeAreaName(area.nombre))return json(res,409,{error:'El área no coincide con el expediente seleccionado.'});
+           if(!area){const selectedAreaName=storedAreaName||input.especialidad;if(typeof selectedAreaName==='string')area=areas.find(item=>item.activo!==false&&normalizeAreaName(item.nombre)===normalizeAreaName(selectedAreaName));}
+           if(!area)return json(res,400,{error:'El alumno seleccionado no tiene un área activa asociada. Asigna un área antes de crear su cuenta.'});
+           if(assignedAreaId&&assignedAreaId!==area.id)return json(res,409,{error:'El área no coincide con el expediente seleccionado.'});
+           personaId=student.id;input.especialidadId=area.id;
+          }else{
+           const matricula=typeof input.matricula==='string'?input.matricula.trim().toLocaleLowerCase('es'):'';
+           const legacyStudent=students.find(person=>String(person.matricula??'').trim().toLocaleLowerCase('es')===matricula&&person.activo!==false);
+           if(!legacyStudent)return json(res,400,{error:'Selecciona un alumno activo existente.'});
+           const area= (await storage.read('especialidades')).find(x=>x.activo!==false&&normalizeAreaName(x.nombre)===normalizeAreaName(input.especialidad));if(!area)return json(res,400,{error:'La especialidad no coincide con un área activa.'});if(legacyStudent.especialidadId&&legacyStudent.especialidadId!==area.id)return json(res,409,{error:'La especialidad no coincide con el expediente seleccionado.'});
+           personaId=legacyStudent.id;input.especialidadId=area.id;
+          }
         }else if (input.rol !== 'direccion') {
           const personCollection = { alumno: 'alumnos', maestro: 'maestros', tutor: 'tutores' }[input.rol];
-          if (typeof personaId !== 'string' || !(await storage.read(personCollection)).some(person => person.id === personaId)) return json(res, 400, { error: 'La persona asociada al rol no existe.' });
+          if (typeof personaId !== 'string' || !(await storage.read(personCollection)).some(person => person.id === personaId&&person.activo!==false)) return json(res, 400, { error: 'Selecciona un expediente activo para esta cuenta.' });
         }
         await storage.backup(backupDir);const passwordHash = await hashPassword(input.password);
         const created = { id: randomUUID(), email, nombre: input.nombre.trim(), rol: input.rol, activo: true, ...(personaId ? { personaId } : {}), ...(input.rol==='alumno'?{especialidadId:input.especialidadId}:{}), passwordHash, creadoEn: new Date().toISOString() };
