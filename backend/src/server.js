@@ -7,6 +7,7 @@ import { COLLECTIONS } from './storage/json-storage.js';
 import { createStorage } from './storage/create-storage.js';
 import { createSession, readSession, verifyPassword, hashPassword } from './security.js';
 import { sendPushNotifications } from './push.js';
+import { sendScheduleReminders } from './schedule-reminders.js';
 
 const env = process.env;
 const port = Number(env.PORT ?? 3000);
@@ -272,6 +273,7 @@ async function notifyTutorsOfStudentEvent(studentId,event){
 }
 async function runScheduledJobs(){if(schedulerBusy)return;schedulerBusy=true;try{
   const settings=(await storage.read('configuracion'))[0]??{},zone=settings.zonaHoraria??'America/Guatemala',today=todayAt(zone),summaryAt=settings.horaResumenDiario??'17:00';
+  await sendScheduleReminders(storage,{timeZone:zone,env});
   const prior=new Date(`${today}T12:00:00Z`);prior.setUTCDate(prior.getUTCDate()-1);await generateDailyMessages(prior.toISOString().slice(0,10));
   if(timeAt(new Date(),zone)>=summaryAt)await generateDailyMessages(today);
   if(timeAt(new Date(),zone)==='02:00'){
@@ -577,6 +579,16 @@ const server = http.createServer(async (req, res) => {
         await audit(user,'cambiar_estado',`${collection}:${id}`);const item=updated.find(x=>x.id===id);if(item.passwordHash){const{passwordHash,...safe}=item;return json(res,200,safe)}if(collection==='avisos_escolares'&&item.publicado)return json(res,200,{...item,notificacionesPush:await notifyPublishedAnnouncement(item)});return json(res,200,item);
       }
       const match = url.pathname.match(/^\/api\/([^/]+)$/);
+      if(req.method==='GET'&&url.pathname==='/api/asistencias/tiempo-real'){
+        if(user.rol!=='direccion')return json(res,403,{error:'Solo Dirección puede consultar las entradas en tiempo real.'});
+        const jornadaId=url.searchParams.get('jornadaId');if(!jornadaId)return json(res,400,{error:'Selecciona una jornada.'});
+        const [journeys,attendance,students]=await Promise.all([storage.read('jornadas'),storage.read('asistencias'),storage.read('alumnos')]);
+        const journey=journeys.find(item=>item.id===jornadaId);if(!journey)return json(res,404,{error:'Jornada no encontrada.'});
+        const studentById=new Map(students.map(student=>[student.id,student]));
+        const matching=attendance.filter(item=>item.jornadaId===journey.id).sort((a,b)=>(Date.parse(b.horaServidor)||0)-(Date.parse(a.horaServidor)||0));
+        const registros=matching.slice(0,20).map(item=>({id:item.id,alumnoId:item.alumnoId,nombreSnapshot:item.nombreSnapshot||'Alumno',matricula:studentById.get(item.alumnoId)?.matricula??'',horaServidor:item.horaServidor,metodo:item.metodo}));
+        return json(res,200,{jornadaId:journey.id,fecha:journey.fecha,zonaHoraria:journey.zonaHoraria??'America/Guatemala',total:matching.length,registros});
+      }
       if (match && req.method === 'GET') {
         const collection = match[1];
         if (!COLLECTIONS.includes(collection)) return json(res, 404, { error: 'Colección no encontrada.' });

@@ -34,6 +34,7 @@ Cada archivo de datos contiene `{ "schemaVersion": 1, "records": [...] }` e IDs 
 - `relaciones_tutores` limita en servidor qué expedientes puede consultar cada tutor.
 - `inscripciones` vincula alumno, grupo y ciclo; `horarios` relaciona grupo, maestro y materia.
 - Una jornada escolar habilitada origina tokens QR temporales y entradas en `asistencias`.
+- La pantalla QR de Dirección consulta los últimos 20 registros de una jornada y se actualiza cada 15 segundos; su endpoint se limita al rol Dirección.
 - Una lista abierta desde horario origina `listas_asistencia` y, al cerrarse, incidencias en `faltas` y `retardos`.
 - `calificaciones` se vincula con alumno, materia, maestro y periodo. `boletas` registra qué calificaciones se publicaron.
 - `justificaciones` referencia la incidencia que dirección debe resolver. Mensajes internos y notificaciones enlazan destinatario y alumno.
@@ -62,11 +63,11 @@ La interfaz incluye navegación lateral, panel de administración, indicadores y
 
 El QR se construye localmente, rota con un token aleatorio de 128 bits (22 caracteres) cada dos minutos, guarda solo su hash y exige jornada habilitada. El token corto cabe en la capacidad del generador QR local. La lectura usa `BarcodeDetector` si el navegador lo ofrece o permite introducir el texto escaneado. La disponibilidad de cámara depende del navegador y, fuera de localhost, de un contexto seguro. El escaneo por sí mismo no es prueba de presencia física.
 
-Las notificaciones automáticas disponibles son mensajes internos guardados en JSON. No se envía por WhatsApp, SMS o correo.
+Los recordatorios de clase se generan cinco minutos antes para cuentas activas de maestros y alumnos con inscripción activa, únicamente en días lectivos y usando la zona horaria configurada. Las claves de idempotencia evitan duplicados durante las ejecuciones periódicas. Se guardan en `mensajes` y `notificaciones`; Web Push es opcional y requiere VAPID. No se envía por WhatsApp, SMS o correo.
 
 ## Pruebas ejecutadas y límites
 
-`npm test` comprueba autenticación y aislamiento familiar, QR local, escaneo de credencial y registro manual de entrada, inicialización/IDs, concurrencia dentro de proceso, hash y sesión firmada, recuperación de transacciones después de reiniciar, checksum/restauración e importación CSV/Excel (plantillas, duplicados, validación e inscripciones). La prueba de API también incluye asistencia, listas, notas, boletas, permisos, justificaciones y exportación.
+`npm test` comprueba autenticación y aislamiento familiar, QR local, escaneo de credencial y registro manual de entrada, lista en vivo limitada a las 20 entradas recientes, recordatorios de horario con deduplicación, inicialización/IDs, concurrencia dentro de proceso, hash y sesión firmada, recuperación de transacciones después de reiniciar, checksum/restauración e importación CSV/Excel (plantillas, duplicados, validación e inscripciones). La prueba de API también incluye asistencia, listas, notas, boletas, permisos, justificaciones y exportación.
 
 Las pruebas no equivalen a una auditoría ni a un piloto. Falta verificar decodificación QR con cámaras reales, pruebas de carga y fallos físicos de disco, compatibilidad de dispositivos y revisión independiente de seguridad. No se ha generado PDF, configurado proveedor de despliegue ni verificado persistencia en un servidor externo; por tanto, no está desplegada ni aprobada para datos reales.
 

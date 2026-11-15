@@ -37,6 +37,7 @@ const exportablePages=new Set(['alumnos','maestros','tutores','grupos','materias
 let currentPage = 'dashboard';
 let selectedFamilyStudent='';
 let qrRotationTimer;
+let attendanceRefreshTimer;
 let editingId=null;
 let currentOffset=0,searchTerm='',statusFilter='';
 let studentImportFeedback=null,recordStatusTimer;
@@ -239,7 +240,7 @@ async function showPortal(user) {
   const query=new URLSearchParams(location.search),target=query.has('mensaje')?'mensajes':query.has('aviso')?'avisos_escolares':null;if(target){const navButton=[...document.querySelectorAll('.nav-link')].find(item=>item.textContent.includes(labels[target]));if(navButton){await loadPage(target,labels[target],navButton);history.replaceState(null,'',location.pathname+location.hash)}}
 }
 async function loadPage(key,title,button,offset=0) {
-  credentialScannerCleanup?.();credentialScannerCleanup=undefined;clearTimeout(qrRotationTimer);if(key!==currentPage){offset=0;searchTerm='';statusFilter='';editingId=null;studentImportFeedback=null;clearTimeout(recordStatusTimer);$('#record-search').value='';for(const selector of ['#record-result','#account-result','#reset-result','#settings-result'])$(selector).textContent='';}currentPage=key;currentOffset=offset;updateRecordFilter(key);document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));button?.classList.add('active');
+  credentialScannerCleanup?.();credentialScannerCleanup=undefined;clearTimeout(qrRotationTimer);clearInterval(attendanceRefreshTimer);attendanceRefreshTimer=undefined;if(key!==currentPage){offset=0;searchTerm='';statusFilter='';editingId=null;studentImportFeedback=null;clearTimeout(recordStatusTimer);$('#record-search').value='';for(const selector of ['#record-result','#account-result','#reset-result','#settings-result'])$(selector).textContent='';}currentPage=key;currentOffset=offset;updateRecordFilter(key);document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));button?.classList.add('active');
   $('#record-search').classList.toggle('hidden',key==='dashboard'||key==='perfil'||key==='backups'||key==='vincular_alumno');$('#record-search').placeholder=key==='usuarios'?'Buscar por nombre o correo…':'Buscar registros';$('#record-search').setAttribute('aria-label',key==='usuarios'?'Buscar usuarios por nombre o correo':'Buscar registros');
   $('#dashboard-content').replaceChildren();$('#list-title').textContent=title;$('#module-kicker').textContent=key==='dashboard'?'VISTA GENERAL':'REGISTROS ESCOLARES';const loading=document.createElement('div');loading.className='loading';loading.setAttribute('role','status');loading.textContent='Cargando información…';$('#list').replaceChildren(loading);
   const isDirection=me?.rol==='direccion';$('#account-admin').classList.toggle('hidden',!isDirection||key!=='usuarios');$('#settings-admin').classList.toggle('hidden',!isDirection||key!=='configuracion');
@@ -318,7 +319,7 @@ async function renderStudentCredential(student){
   const head=document.createElement('div');head.className='credential-head';
   const logo=document.createElement('img');logo.className='credential-logo';logo.src='/icons/genix-app-512.png';logo.alt='Logotipo de Genix';
   const institution=document.createElement('div');institution.className='credential-institution';const overline=document.createElement('span');overline.textContent='GENIX · CONTROL ESCOLAR';const school=document.createElement('strong');school.textContent='Credencial de estudiante';institution.append(overline,school);
-  const badge=document.createElement('span');badge.className='credential-status';badge.textContent=student.activo===false?'INACTIVO':'ACTIVO';head.append(logo,institution,badge);
+  const badge=document.createElement('span');badge.className=`credential-status${student.activo===false?' credential-status-inactive':''}`;badge.textContent=student.activo===false?'INACTIVO':'ACTIVO';head.append(logo,institution,badge);
   const identity=document.createElement('div');identity.className='credential-identity';const initials=document.createElement('div');initials.className='credential-avatar';initials.textContent=fullName.split(/\s+/).slice(0,2).map(word=>word[0]??'').join('').toUpperCase();const nameBlock=document.createElement('div');const name=document.createElement('h2');name.textContent=fullName;const matricula=document.createElement('p');matricula.innerHTML='MATRÍCULA <strong></strong>';matricula.querySelector('strong').textContent=student.matricula||'Pendiente';nameBlock.append(name,matricula);identity.append(initials,nameBlock);
   const details=document.createElement('dl');details.className='credential-details';for(const [label,value] of [['Especialidad',student.especialidadNombre],['Grado',student.grado],['Semestre',student.semestre?`${student.semestre}° semestre`:'' ],['Grupo',student.grupoNombre],['Ciclo escolar',student.ciclo],['Correo institucional',student.correoCuenta??me?.email],['Teléfono',student.telefono]]){const item=document.createElement('div');const term=document.createElement('dt');term.textContent=label;const description=document.createElement('dd');description.textContent=value||'Por completar';item.append(term,description);details.append(item)}
   const qrPanel=document.createElement('div');qrPanel.className='credential-qr';const qrTitle=document.createElement('span');qrTitle.textContent='IDENTIFICACIÓN ESCOLAR';const qrHelp=document.createElement('small');qrHelp.textContent='Código de matrícula';if(student.matricula){const {qrSvg}=await import('./qr.js');const qr=document.createElement('img');qr.className='credential-qr-image';qr.alt=`Código QR de matrícula ${student.matricula}`;qr.src=URL.createObjectURL(new Blob([qrSvg(`GENIX|ALUMNO|${student.matricula}`)],{type:'image/svg+xml'}));qrPanel.append(qrTitle,qr,qrHelp);}else{const missing=document.createElement('small');missing.textContent='Matrícula pendiente';qrPanel.append(qrTitle,missing)}
@@ -495,7 +496,73 @@ async function renderCredentialScanner(){
     }catch(error){const messages={NotAllowedError:'Permite el acceso a la cámara en los ajustes del navegador.',NotFoundError:'No se encontró una cámara disponible.',NotReadableError:'La cámara está ocupada por otra aplicación.'};status.textContent=messages[error?.name]??'No se pudo abrir la cámara.';stopCamera();}
   };
 }
-async function renderQrAction(){const box=actionBox('Código de entrada temporal','El QR permanece válido durante 10 minutos y se renueva antes de vencer.');const row=document.createElement('div');row.className='inline-form';const select=document.createElement('select');select.setAttribute('aria-label','Jornada');const refresh=document.createElement('button');refresh.textContent='Generar código';const result=document.createElement('div');result.className='qr-result';try{const days=await api('/api/jornadas');for(const day of days.filter(x=>x.estado==='habilitada')){const option=document.createElement('option');option.value=day.id;option.textContent=`${day.fecha} · ${day.nombre} · ${day.abreEn}–${day.cierraEn}`;select.append(option)}if(!select.options.length){select.innerHTML='<option value="">Primero habilita una jornada</option>';refresh.disabled=true;}}catch(e){result.textContent=e.message;refresh.disabled=true;}refresh.onclick=async()=>{clearTimeout(qrRotationTimer);try{const data=await api('/api/qr_diarios/renovar',{method:'POST',body:JSON.stringify({jornadaId:select.value})});result.replaceChildren();const {qrSvg}=await import('./qr.js');const image=document.createElement('img');image.className='qr-image';const qrLink=new URL('/',location.origin);qrLink.searchParams.set('qr',data.token);image.alt='Enlace QR para registrar la entrada desde el teléfono';image.src=URL.createObjectURL(new Blob([qrSvg(qrLink.href)],{type:'image/svg+xml'}));const code=document.createElement('code');code.className='qr-manual-code';code.textContent=data.token;const manualHint=document.createElement('span');manualHint.className='qr-manual-hint';manualHint.textContent='Si no puedes escanearlo, escribe estos 5 números.';const expiry=document.createElement('span');expiry.textContent=`Válido hasta ${new Date(data.expiraEn).toLocaleTimeString('es-GT')}.`;const copy=document.createElement('button');copy.className='secondary';copy.textContent='Copiar código';copy.onclick=()=>navigator.clipboard?.writeText(data.token);result.append(image,manualHint,code,expiry,copy);const refreshDelay=Math.max(1000,Date.parse(data.expiraEn)-Date.now()-10000);qrRotationTimer=setTimeout(()=>{if(currentPage==='qr_diarios')refresh.click()},refreshDelay);}catch(e){result.textContent=e.message}};row.append(select,refresh);box.append(row,result);$('#list').append(box);}
+async function renderQrAction(){
+  const box=actionBox('Código de entrada temporal','El QR permanece válido durante 10 minutos y se renueva antes de vencer.');
+  const row=document.createElement('div');row.className='inline-form';
+  const select=document.createElement('select');select.setAttribute('aria-label','Jornada');
+  const refresh=document.createElement('button');refresh.textContent='Generar código';
+  const result=document.createElement('div');result.className='qr-result';
+  try{
+    const days=await api('/api/jornadas');
+    for(const day of days.filter(item=>item.estado==='habilitada')){
+      const option=document.createElement('option');option.value=day.id;
+      option.textContent=`${day.fecha} · ${day.nombre} · ${day.abreEn}–${day.cierraEn}`;select.append(option);
+    }
+    if(!select.options.length){select.innerHTML='<option value="">Primero habilita una jornada</option>';refresh.disabled=true;}
+  }catch(error){result.textContent=error.message;refresh.disabled=true;}
+  if(currentPage!=='qr_diarios')return;
+  refresh.onclick=async()=>{
+    clearTimeout(qrRotationTimer);
+    try{
+      const data=await api('/api/qr_diarios/renovar',{method:'POST',body:JSON.stringify({jornadaId:select.value})});
+      result.replaceChildren();const {qrSvg}=await import('./qr.js');const image=document.createElement('img');
+      image.className='qr-image';const qrLink=new URL('/',location.origin);qrLink.searchParams.set('qr',data.token);
+      image.alt='Enlace QR para registrar la entrada desde el teléfono';
+      image.src=URL.createObjectURL(new Blob([qrSvg(qrLink.href)],{type:'image/svg+xml'}));
+      const code=document.createElement('code');code.className='qr-manual-code';code.textContent=data.token;
+      const manualHint=document.createElement('span');manualHint.className='qr-manual-hint';manualHint.textContent='Si no puedes escanearlo, escribe estos 5 números.';
+      const expiry=document.createElement('span');expiry.textContent=`Válido hasta ${new Date(data.expiraEn).toLocaleTimeString('es-GT')}.`;
+      const copy=document.createElement('button');copy.className='secondary';copy.textContent='Copiar código';copy.onclick=()=>navigator.clipboard?.writeText(data.token);
+      result.append(image,manualHint,code,expiry,copy);
+      const refreshDelay=Math.max(1000,Date.parse(data.expiraEn)-Date.now()-10000);
+      qrRotationTimer=setTimeout(()=>{if(currentPage==='qr_diarios')refresh.click()},refreshDelay);
+    }catch(error){result.textContent=error.message;}
+  };
+  row.append(select,refresh);box.append(row,result);$('#list').append(box);renderLiveAttendance(select);
+}
+function renderLiveAttendance(journeySelect){
+  const panel=actionBox('Entradas en tiempo real','Consulta los registros más recientes de la jornada. La lista se actualiza cada 15 segundos.');
+  panel.classList.add('attendance-live-panel');
+  const header=document.createElement('div');header.className='attendance-live-header';
+  const summary=document.createElement('strong');summary.className='attendance-live-summary';summary.textContent='Selecciona una jornada habilitada.';
+  const refresh=document.createElement('button');refresh.type='button';refresh.className='secondary';refresh.textContent='Actualizar ahora';
+  header.append(summary,refresh);
+  const status=document.createElement('p');status.className='attendance-live-status';status.setAttribute('role','status');
+  const list=document.createElement('div');list.className='attendance-live-list';
+  let loading=false;
+  const update=async()=>{
+    if(!journeySelect.value||loading)return;
+    loading=true;refresh.disabled=true;
+    try{
+      const data=await api(`/api/asistencias/tiempo-real?jornadaId=${encodeURIComponent(journeySelect.value)}`);
+      summary.textContent=`${data.total} ${data.total===1?'entrada registrada':'entradas registradas'}`;
+      list.replaceChildren();
+      if(!data.registros.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Todavía no hay entradas para esta jornada.';list.append(empty);}
+      for(const record of data.registros){
+        const item=document.createElement('article');item.className='attendance-live-row';
+        const identity=document.createElement('div');const name=document.createElement('strong');name.textContent=record.nombreSnapshot;const registration=document.createElement('span');registration.textContent=record.matricula?`Matrícula ${record.matricula}`:'Matrícula no disponible';identity.append(name,registration);
+        const time=document.createElement('time');time.dateTime=record.horaServidor;time.textContent=record.horaServidor?new Date(record.horaServidor).toLocaleTimeString('es-GT',{timeZone:data.zonaHoraria,hour:'2-digit',minute:'2-digit'}):'Hora no disponible';
+        item.append(identity,time);list.append(item);
+      }
+      status.textContent=`Actualizado ${new Date().toLocaleTimeString('es-GT',{timeZone:data.zonaHoraria,hour:'2-digit',minute:'2-digit'})}.`;
+    }catch(error){status.textContent=error.message;}
+    finally{loading=false;refresh.disabled=false;}
+  };
+  refresh.onclick=update;journeySelect.addEventListener('change',update);
+  panel.append(header,status,list);$('#list').append(panel);
+  void update();
+  if(journeySelect.value)attendanceRefreshTimer=setInterval(()=>{if(currentPage==='qr_diarios'&&document.visibilityState==='visible')void update();},15000);
+}
 function renderAttendanceAction(){
   const box=actionBox('Registrar entrada','Escribe el código de cinco números o apunta la cámara al código QR.');
   const form=document.createElement('form');form.className='inline-form';

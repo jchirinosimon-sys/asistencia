@@ -1,4 +1,4 @@
-const CACHE_NAME = 'genix-asis-shell-v13';
+const CACHE_NAME = 'genix-asis-shell-v14';
 const APP_SHELL = [
   '/',
   '/index.html',
