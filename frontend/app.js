@@ -87,7 +87,7 @@ function ensureRecordPicker(){
   const results=document.createElement('div');results.id='record-picker-results';results.className='record-picker-results';
   const pagination=document.createElement('div');pagination.className='pagination record-picker-pagination';const pageInfo=document.createElement('span');pageInfo.id='record-picker-page';const previous=document.createElement('button');previous.type='button';previous.className='secondary';previous.textContent='Anterior';const next=document.createElement('button');next.type='button';next.className='secondary';next.textContent='Siguiente';pagination.append(pageInfo,previous,next);
   panel.append(heading,description,label,status,results,pagination);dialog.append(panel);document.body.append(dialog);
-  dialog._picker={title,description,search,status,results,pageInfo,previous,next};
+  dialog._picker={title,description,search,status,results,pagination,pageInfo,previous,next};
   return dialog;
 }
 async function openRecordPicker({title,description='',collection,records,endpoint,onSelect,canSelect=()=>true,emptyText='No hay expedientes disponibles.'}){
