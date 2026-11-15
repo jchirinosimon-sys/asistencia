@@ -1,7 +1,7 @@
 {
-  "id": "/",
+  "id": "/?app=genix-asis",
   "name": "Genix-asis",
-  "short_name": "Genix",
+  "short_name": "Genix-asis",
   "description": "Genix-asis: plataforma escolar sencilla, rápida y segura.",
   "lang": "es",
   "start_url": "/",

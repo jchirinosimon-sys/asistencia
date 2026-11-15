@@ -1,4 +1,4 @@
-const CACHE_NAME = 'genix-asis-shell-v12';
+const CACHE_NAME = 'genix-asis-shell-v13';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -8,7 +8,7 @@ const APP_SHELL = [
   '/app.js',
   '/qr.js',
   '/pwa.js',
-  '/manifest.webmanifest',
+  '/manifest.webmanifest?brand=genix-asis-v2',
   '/icons/genix-app-192.png',
   '/icons/genix-app-512.png',
   '/icons/logo.svg',

@@ -34,6 +34,9 @@ test('API autentica, crea usuarios sin revelar hashes y aísla los datos de cada
   const base=`http://127.0.0.1:${port}`;let health,connectionError='';
   for(let attempt=0;attempt<50;attempt++){try{health=await fetch(`${base}/api/health`);if(health.ok)break;}catch(error){connectionError=error.message;}await new Promise(resolve=>setTimeout(resolve,100));}
   assert.equal(health?.status,200,`el servidor debe iniciar: ${serverOutput} ${connectionError}`);
+  const manifestResponse=await fetch(`${base}/manifest.webmanifest?brand=genix-asis-v2`);assert.equal(manifestResponse.status,200);const manifest=await manifestResponse.json();assert.equal(manifest.id,'/?app=genix-asis');assert.equal(manifest.name,'Genix-asis');assert.equal(manifest.short_name,'Genix-asis');assert.equal(manifest.theme_color,'#000000');
+  const iconResponse=await fetch(`${base}/icons/genix-app-192.png`);assert.equal(iconResponse.status,200);assert.match(iconResponse.headers.get('content-type'),/image\/png/);
+  const brandingStyles=await fetch(`${base}/branding.css`);assert.equal(brandingStyles.status,200);assert.match(await brandingStyles.text(),/--green:#171717/);
   async function login(email,password){const r=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,password})});assert.equal(r.status,200);return(await r.json()).token;}
   const admin=await login('admin@test.local','clave-segura-admin');
   const templateResponse=await fetch(`${base}/api/alumnos/plantilla.xlsx`,{headers:{authorization:`Bearer ${admin}`}});
