@@ -151,12 +151,12 @@ async function loadPage(key,title,button,offset=0) {
   $('#record-search').classList.toggle('hidden',key==='dashboard'||key==='perfil'||key==='backups'||key==='vincular_alumno');$('#record-search').placeholder=key==='usuarios'?'Buscar por nombre o correo…':'Buscar registros';$('#record-search').setAttribute('aria-label',key==='usuarios'?'Buscar usuarios por nombre o correo':'Buscar registros');
   $('#dashboard-content').replaceChildren();$('#list-title').textContent=title;$('#module-kicker').textContent=key==='dashboard'?'VISTA GENERAL':'REGISTROS ESCOLARES';const loading=document.createElement('div');loading.className='loading';loading.setAttribute('role','status');loading.textContent='Cargando información…';$('#list').replaceChildren(loading);
   const isDirection=me?.rol==='direccion';$('#account-admin').classList.toggle('hidden',!isDirection||key!=='usuarios');$('#settings-admin').classList.toggle('hidden',!isDirection||key!=='configuracion');
-  const canCreate=isDirection&&forms[key];$('#record-admin').classList.toggle('hidden',!canCreate);if(canCreate)buildRecordForm(key);if(key==='alumnos'&&isDirection)renderStudentImportAction();
+  const canCreate=isDirection&&forms[key];$('#record-admin').classList.toggle('hidden',!canCreate);if(canCreate)buildRecordForm(key);
   try {
     if(key==='vincular_alumno'&&me?.rol==='tutor'){$('#list').replaceChildren();await renderTutorLinkAction();return;}
     if(key==='organizacion'){const [areas,groups,terms]=await Promise.all([api('/api/especialidades?limit=200'),api('/api/grupos?limit=200'),api('/api/semestres?limit=100')]);$('#list').replaceChildren();await renderOrganization(areas,groups,terms);return;}
     const pageSize=key==='permisos'?10:50;const params=new URLSearchParams({limit:String(pageSize),offset:String(offset)});if(searchTerm)params.set('q',searchTerm);if(me?.rol==='tutor'&&selectedFamilyStudent)params.set('alumnoId',selectedFamilyStudent);const result=await api(`/api/${key}${key==='dashboard'?'':`?${params}`}`);const total=api.lastTotal??result.length;
-    $('#dashboard-content').replaceChildren();
+    $('#dashboard-content').replaceChildren();if(key==='alumnos'&&isDirection)renderStudentImportAction();
     if(key==='dashboard'){
       const sections=[
         {title:'Alumnos',description:'Matrícula, entradas e incidencias de hoy.',items:[['alumnos','Alumnos','◉'],['asistencias','Entradas hoy','↗'],['faltas','Faltas hoy','!'],['retardos','Retardos hoy','◴'],['calificaciones','Calificaciones','☆']]},
