@@ -249,7 +249,7 @@ async function loadPage(key,title,button,offset=0) {
     if(key==='vincular_alumno'&&me?.rol==='tutor'){$('#list').replaceChildren();await renderTutorLinkAction();return;}
     if(key==='organizacion'){const [areas,groups,terms]=await Promise.all([api('/api/especialidades?limit=200'),api('/api/grupos?limit=200'),api('/api/semestres?limit=100')]);$('#list').replaceChildren();await renderOrganization(areas,groups,terms);return;}
     if(key==='escaner_credenciales'&&me?.rol==='direccion'){$('#dashboard-content').replaceChildren();$('#list').replaceChildren();await renderCredentialScanner();return;}
-    const pageSize=key==='permisos'?10:50;const params=new URLSearchParams({limit:String(pageSize),offset:String(offset)});if(searchTerm)params.set('q',searchTerm);if(statusFilter)params.set('estado',statusFilter);if(me?.rol==='tutor'&&selectedFamilyStudent)params.set('alumnoId',selectedFamilyStudent);const result=await api(`/api/${key}${key==='dashboard'?'':`?${params}`}`);const total=api.lastTotal??result.length;
+    const pageSize=key==='permisos'?10:key==='horarios'?200:50;const params=new URLSearchParams({limit:String(pageSize),offset:String(offset)});if(searchTerm)params.set('q',searchTerm);if(statusFilter)params.set('estado',statusFilter);if(me?.rol==='tutor'&&selectedFamilyStudent)params.set('alumnoId',selectedFamilyStudent);const result=await api(`/api/${key}${key==='dashboard'?'':`?${params}`}`);const total=api.lastTotal??result.length;
     $('#dashboard-content').replaceChildren();if(key==='alumnos'&&isDirection)renderStudentImportAction();
     if(key==='dashboard'){
       if(!isDirection){
@@ -287,6 +287,7 @@ async function loadPage(key,title,button,offset=0) {
     if(key==='backups'&&me?.rol==='direccion')renderBackupActions();
     if(key==='usuarios'&&Array.isArray(result)){renderUserSections(result);if(total>result.length)renderPagination(total,offset);return;}
     if(key==='permisos'&&Array.isArray(result)){if(me?.rol==='tutor')await renderPermitAction();renderPermits(result);if(total>result.length)renderPagination(total,offset,10);return;}
+    if(key==='horarios'&&Array.isArray(result)){await renderScheduleView(result);if(total>result.length)renderPagination(total,offset,pageSize);return;}
     if(key==='perfil'&&result&&typeof result==='object'&&!Array.isArray(result)){if(me?.rol==='alumno')await renderStudentCredential(result);else $('#list').append(recordCard(result));return;}
     if(!Array.isArray(result)||!result.length){const blank=document.createElement('div');blank.className='empty-state';blank.innerHTML=`<span class="empty-icon">${iconFor(key)}</span><strong>Aún no hay ${title.toLowerCase()}</strong><span>Los registros que correspondan aparecerán aquí.</span>`;$('#list').append(blank);return;}
     const rows=result.map(record=>recordCard(record));$('#list').append(...rows);if(total>50)renderPagination(total,offset);
@@ -646,7 +647,71 @@ function renderJustificationRequestAction(){
   form.onsubmit=async event=>{event.preventDefault();if(!id.value){status.textContent='Selecciona primero la falta o el retardo.';return;}const values=Object.fromEntries(new FormData(form));values.alumnoId=selectedFamilyStudent;submit.disabled=true;try{await api('/api/justificaciones',{method:'POST',body:JSON.stringify(values)});status.textContent='Solicitud enviada.';form.reset();selected.textContent='';}catch(error){status.textContent=error.message;}finally{submit.disabled=false;}};
   form.append(choose,selected,id,reason,submit,status);box.append(form);$('#list').append(box);
 }
-function renderOpenListActions(records){const schedules=records.filter(x=>x.id&&x.horaInicio);if(!schedules.length)return;const box=actionBox('Lista de asistencia','Abre la lista desde la sesión asignada en tu horario.');for(const record of schedules){const button=document.createElement('button');button.className='row-action';button.textContent=`Hacer lista · ${record.horaInicio} · ${record.materiaNombre??record.materiaId}`;button.onclick=async()=>{button.disabled=true;try{await api('/api/listas_asistencia',{method:'POST',body:JSON.stringify({horarioId:record.id})});await loadPage('listas_asistencia','Listas de clase',document.querySelector('.nav-link.active'));}catch(error){alert(error.message);button.disabled=false}};box.append(button)}$('#list').append(box);}
+async function renderScheduleView(records){
+  if(me?.rol==='maestro')await renderOpenListActions(records);
+  const active=records.filter(record=>record.activo!==false&&record.grupoId);
+  const groups=new Map();
+  for(const record of active){if(!groups.has(record.grupoId))groups.set(record.grupoId,[]);groups.get(record.grupoId).push(record);}
+  if(!groups.size&&me?.rol!=='direccion'){
+    const empty=document.createElement('div');empty.className='empty-state';empty.innerHTML='<span class="empty-icon">◷</span><strong>Aún no hay horarios</strong><span>Los horarios asignados a tu expediente aparecerán aquí.</span>';$('#list').append(empty);
+  }
+  if(groups.size){
+    const toolbar=document.createElement('div');toolbar.className='schedule-toolbar';const print=document.createElement('button');print.type='button';print.className='secondary schedule-print';print.textContent='Imprimir horarios';print.onclick=()=>{document.body.classList.add('printing-schedule');window.onafterprint=()=>document.body.classList.remove('printing-schedule');window.print();};toolbar.append(print);$('#list').append(toolbar);
+  }
+  const sortedGroups=[...groups.entries()].sort(([,a],[,b])=>(a[0].areaNombre??'').localeCompare(b[0].areaNombre??'','es')||(a[0].ciclo??'').localeCompare(b[0].ciclo??'','es')||(a[0].grupoNombre??'').localeCompare(b[0].grupoNombre??'','es'));
+  for(const [,sessions] of sortedGroups){
+    const first=sessions[0],sheet=document.createElement('section');sheet.className='schedule-sheet';
+    const heading=document.createElement('header');heading.className='schedule-sheet-heading';
+    const title=document.createElement('h3');title.textContent='HORARIO DE GRUPO';
+    const metadata=document.createElement('div');metadata.className='schedule-metadata';
+    for(const [label,value] of [['Área',first.areaNombre],['Ciclo',first.ciclo],['Semestre',first.semestreNombre],['Grupo',first.grupoNombre]]){
+      if(!value)continue;const item=document.createElement('div');const caption=document.createElement('span');caption.textContent=label;const detail=document.createElement('strong');detail.textContent=String(value);item.append(caption,detail);metadata.append(item);
+    }
+    heading.append(title,metadata);sheet.append(heading);
+    const days=[[1,'Lunes'],[2,'Martes'],[3,'Miércoles'],[4,'Jueves'],[5,'Viernes']];
+    if(sessions.some(record=>Number(record.diaSemana)===0))days.unshift([0,'Domingo']);
+    if(sessions.some(record=>Number(record.diaSemana)===6))days.push([6,'Sábado']);
+    const subjects=new Map();
+    for(const session of sessions){const key=`${session.materiaId??session.materiaNombre??'materia'}|${session.maestroId??session.maestroNombre??'maestro'}`;if(!subjects.has(key))subjects.set(key,[]);subjects.get(key).push(session);}
+    const wrapper=document.createElement('div');wrapper.className='schedule-table-wrap';const table=document.createElement('table');table.className='schedule-table';
+    const head=document.createElement('thead'),headerRow=document.createElement('tr');
+    for(const label of ['Código','Asignatura','H','Catedráticos',...days.map(([,name])=>name)]){const cell=document.createElement('th');cell.scope='col';cell.textContent=label;headerRow.append(cell);}
+    head.append(headerRow);const body=document.createElement('tbody');
+    for(const subjectSessions of subjects.values()){
+      const sample=subjectSessions[0],row=document.createElement('tr'),minutes=subjectSessions.reduce((total,session)=>{const start=Number(String(session.horaInicio??'').slice(0,2))*60+Number(String(session.horaInicio??'').slice(3,5)),end=Number(String(session.horaFin??'').slice(0,2))*60+Number(String(session.horaFin??'').slice(3,5));return Number.isFinite(start)&&Number.isFinite(end)&&end>start?total+end-start:total;},0);
+      const code=document.createElement('td');code.textContent=sample.materiaClave||sample.materiaId||'—';
+      const name=document.createElement('td');name.textContent=sample.materiaNombre||'Asignatura';
+      const hours=document.createElement('td');hours.textContent=new Intl.NumberFormat('es-MX',{maximumFractionDigits:2}).format(minutes/60);
+      const teacher=document.createElement('td');teacher.textContent=sample.maestroNombre||'Sin asignar';
+      row.append(code,name,hours,teacher);
+      for(const [day] of days){const cell=document.createElement('td');const matching=subjectSessions.filter(session=>Number(session.diaSemana)===day).sort((a,b)=>String(a.horaInicio).localeCompare(String(b.horaInicio)));for(const session of matching){const time=document.createElement('span');time.className='schedule-time';time.textContent=`${session.horaInicio}–${session.horaFin}${session.aula?` · ${session.aula}`:''}`;cell.append(time);}row.append(cell);}
+      body.append(row);
+    }
+    table.append(head,body);wrapper.append(table);sheet.append(wrapper);$('#list').append(sheet);
+  }
+  if(me?.rol==='direccion'){
+    if(!records.length){const empty=document.createElement('div');empty.className='empty-state';empty.innerHTML='<span class="empty-icon">◷</span><strong>Aún no hay horarios</strong><span>Los registros que correspondan aparecerán aquí.</span>';$('#list').append(empty);}
+    if(records.length){const management=document.createElement('details');management.className='schedule-management';const summary=document.createElement('summary');summary.textContent=`Administrar sesiones individuales (${records.length})`;management.append(summary);const list=document.createElement('div');list.className='schedule-management-list';list.append(...records.map(record=>recordCard(record)));management.append(list);$('#list').append(management);}
+  }
+}
+async function renderOpenListActions(records){
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Guatemala',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),weekday=new Date(`${today}T12:00:00Z`).getUTCDay();
+  const schedules=records.filter(record=>record.id&&record.activo!==false&&record.horaInicio&&Number(record.diaSemana)===weekday&&(!record.desde||record.desde<=today)&&(!record.hasta||record.hasta>=today));
+  const box=actionBox('Lista de asistencia','Solo se puede abrir desde una clase asignada para hoy y en una fecha lectiva.');
+  if(!schedules.length){const note=document.createElement('span');note.className='form-note';note.textContent='No tienes clases programadas hoy. Las clases de otros días no permiten abrir una lista.';box.append(note);$('#list').prepend(box);return;}
+  let existing;
+  try{existing=await api(`/api/listas_asistencia?fecha=${encodeURIComponent(today)}&limit=200`);}
+  catch(error){const failure=document.createElement('span');failure.className='error-state';failure.textContent=error.message;box.append(failure);$('#list').prepend(box);return;}
+  for(const record of schedules){
+    const list=existing.find(item=>item.horarioId===record.id);
+    if(list){const status=document.createElement('span');status.className='form-note';status.textContent=`${record.horaInicio} · ${record.materiaNombre??'Clase'} · Lista ${list.estado==='abierta'?'abierta':'cerrada'}.`;box.append(status);continue;}
+    const button=document.createElement('button');button.type='button';button.className='row-action';button.textContent=`Hacer lista · ${record.horaInicio} · ${record.materiaNombre??record.materiaId} · ${record.grupoNombre??'Grupo'}`;
+    const status=document.createElement('span');status.className='form-note';status.setAttribute('role','status');
+    button.onclick=async()=>{button.disabled=true;status.textContent='Abriendo lista…';try{await api('/api/listas_asistencia',{method:'POST',body:JSON.stringify({horarioId:record.id})});await loadPage('listas_asistencia','Listas de clase',document.querySelector('.nav-link.active'));}catch(error){status.textContent=error.message;button.disabled=false}};
+    box.append(button,status);
+  }
+  $('#list').prepend(box);
+}
 function renderCloseListActions(records){for(const list of records.filter(x=>x.estado==='abierta')){const box=actionBox(`Cerrar lista · ${list.fecha}`,`Confirma presentes, retardos y ausencias para ${list.alumnos?.length??0} alumnos.`);const form=document.createElement('form');form.className='attendance-list';for(const student of list.alumnos??[]){const row=document.createElement('label');row.className='attendance-person';const name=document.createElement('span');name.textContent=student.nombreSnapshot;const select=document.createElement('select');select.name=student.alumnoId;for(const [value,label] of [['pendiente','Seleccionar estado'],['presente','Presente'],['retardo','Retardo'],['ausente','Ausente']]){const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=value==='pendiente';select.append(option)}row.append(name,select);form.append(row)}const submit=document.createElement('button');submit.textContent='Cerrar lista y guardar';const hint=document.createElement('span');hint.className='form-note';form.append(submit,hint);form.onsubmit=async e=>{e.preventDefault();submit.disabled=true;const alumnos=Array.from(form.querySelectorAll('select')).map(x=>({alumnoId:x.name,estado:x.value}));try{await api(`/api/listas_asistencia/${list.id}/cerrar`,{method:'POST',body:JSON.stringify({alumnos})});hint.textContent='Lista cerrada. Faltas y retardos quedaron guardados.';await loadPage('listas_asistencia','Listas de clase',document.querySelector('.nav-link.active'));}catch(error){hint.textContent=error.message;submit.disabled=false}};box.append(form);$('#list').append(box);}}
 $('#login-form').addEventListener('submit',async event=>{event.preventDefault();$('#login-error').textContent='';const submit=event.currentTarget.querySelector('button');submit.disabled=true;try{const result=await api('/api/auth/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(event.currentTarget)))});localStorage.setItem(tokenKey,result.token);me=result.usuario;await showPortal(me);await submitPendingAttendance(me);}catch(error){$('#login-error').textContent=error.message;}finally{submit.disabled=false;}});
 $('#push-notifications').addEventListener('click',enablePushNotifications);
