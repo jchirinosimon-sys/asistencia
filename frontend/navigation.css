@@ -67,6 +67,41 @@
   outline-offset: 2px;
 }
 
+.nav-guide-area {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.nav-guide-link {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #f7faf8;
+  color: #355544;
+  font-weight: 700;
+  animation: none;
+}
+
+.nav-guide-link:hover {
+  transform: none;
+}
+
+@media (max-width: 720px) {
+  .topbar-brand-group {
+    gap: 9px;
+    padding-left: 52px;
+  }
+
+  .portal-menu-button {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    left: calc(12px + env(safe-area-inset-left, 0px));
+    z-index: 999;
+    display: flex;
+    flex: 0 0 auto;
+  }
+}
+
 @keyframes menu-item-enter {
   from {
     opacity: 0;

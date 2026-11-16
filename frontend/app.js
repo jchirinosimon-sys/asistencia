@@ -6,7 +6,7 @@ if (incomingQr && /^(?:[0-9]{5}|[A-Za-z0-9_-]{22})$/.test(incomingQr)) {
   history.replaceState(null, '', `${location.pathname}${location.hash}`);
 }
 let me = null;
-const labels = { dashboard:'Resumen',organizacion:'Áreas y grupos',usuarios:'Usuarios',solicitudes_cuenta:'Solicitudes de cuenta',configuracion:'Configuración',alumnos:'Alumnos',maestros:'Maestros',tutores:'Tutores',relaciones_tutores:'Vínculos familiares',vincular_alumno:'Vincular alumno',grupos:'Grupos',especialidades:'Especialidades',semestres:'Semestres',materias:'Materias',inscripciones:'Inscripciones',horarios:'Horarios',calendario_escolar:'Calendario',jornadas:'Jornadas',qr_diarios:'QR diario',escaner_credenciales:'Escáner de credenciales',asistencias:'Entradas',listas_asistencia:'Listas de clase',faltas:'Faltas',retardos:'Retardos',justificaciones:'Justificaciones',permisos:'Permisos',periodos_evaluacion:'Periodos',calificaciones:'Calificaciones',boletas:'Boletas',mensajes:'Mensajes',avisos_escolares:'Avisos' };
+const labels = { dashboard:'Resumen',organizacion:'Áreas y grupos',usuarios:'Usuarios',solicitudes_cuenta:'Solicitudes de cuenta',configuracion:'Configuración',alumnos:'Alumnos',maestros:'Maestros',tutores:'Tutores',relaciones_tutores:'Vínculos familiares',vincular_alumno:'Vincular alumno',grupos:'Grupos',especialidades:'Especialidades',semestres:'Semestres',materias:'Materias',inscripciones:'Inscripciones',horarios:'Horarios',calendario_escolar:'Calendario',jornadas:'Jornadas',qr_diarios:'QR diario',escaner_credenciales:'Escáner de credenciales',asistencias:'Entradas',listas_asistencia:'Listas de clase',faltas:'Faltas',retardos:'Retardos',justificaciones:'Justificaciones',permisos:'Permisos',periodos_evaluacion:'Periodos',calificaciones:'Calificaciones',boletas:'Boletas',mensajes:'Mensajes',avisos_escolares:'Avisos',guia_usuario:'Guía de usuario' };
 const forms = {
   alumnos:[['nombres','Nombres'],['apellidos','Apellidos'],['matricula','Matrícula'],['fechaNacimiento','Fecha de nacimiento','date'],['activo','Activo','checkbox']],
   maestros:[['nombres','Nombres'],['apellidos','Apellidos'],['numeroEmpleado','Número de empleado'],['correo','Correo','email'],['activo','Activo','checkbox']],
@@ -33,6 +33,120 @@ const fieldGuides={
 };
 const formGuides={alumnos:'Crea una ficha escolar. La matrícula identifica al alumno y debe ser única.',maestros:'Registra al docente; después podrás vincularlo a horarios y a su cuenta.',tutores:'Registra los datos de contacto del tutor antes de crear el vínculo familiar.',grupos:'Define el grupo, el ciclo, el semestre y el área desde las fichas registradas.',especialidades:'Registra el nombre oficial de la especialidad y una clave única si tu institución la usa.',semestres:'Indica el nombre y el orden en que aparece dentro del ciclo.',materias:'Usa el nombre oficial de la asignatura y su clave institucional.',relaciones_tutores:'Selecciona las fichas del tutor y del alumno. El vínculo autoriza al tutor a consultar información del alumno.',inscripciones:'Asigna una ficha de alumno a un grupo y especifica el ciclo escolar.',horarios:'Selecciona materia, maestro y grupo. El sistema rechazará cruces de horario.',calendario_escolar:'Marca la fecha como lectiva o describe el evento; solo los días lectivos permiten abrir jornadas.',periodos_evaluacion:'Define las fechas y los límites de calificación del periodo.',avisos_escolares:'Escribe el anuncio institucional y hasta qué fecha debe permanecer visible.',usuarios:'Crea una cuenta y vincúlala con una ficha institucional existente.'};
 const roleName = {direccion:'Dirección',maestro:'Maestro',alumno:'Alumno',tutor:'Tutor'};
+const userGuideContent = {
+  direccion:[
+    {title:'General',items:[
+      {title:'Resumen',how:'Consulta indicadores de matrícula, entradas, faltas, retardos, listas abiertas, periodos y avisos.',example:'Si quieres revisar las faltas de hoy, usa el indicador como referencia y abre “Faltas” para ver los registros.'}
+    ]},
+    {title:'Administración',items:[
+      {title:'Usuarios',how:'Crea cuentas y vincúlalas al expediente correcto. Las contraseñas iniciales deben cambiarse y compartirse por un canal privado.',example:'Al crear la cuenta de una maestra, elige el rol Maestro y selecciona su ficha activa.'},
+      {title:'Solicitudes de cuenta',how:'Revisa los datos, selecciona el expediente que corresponde y aprueba o rechaza cada solicitud.',example:'Compara el nombre y la matrícula antes de aprobar la solicitud de un alumno.'},
+      {title:'Configuración',how:'Define zona horaria, hora del resumen diario, retención de respaldos y escala de calificaciones.',example:'Usa America/Guatemala si la institución opera con esa hora local.'},
+      {title:'Copias de seguridad',how:'Crea respaldos antes de cambios importantes y restaura solo la copia correcta. La restauración reemplaza los datos actuales.',example:'Genera un respaldo antes de importar un archivo grande de alumnos.'}
+    ]},
+    {title:'Comunidad',items:[
+      {title:'Alumnos',how:'Administra expedientes y, si hace falta, importa alumnos desde la plantilla CSV o Excel.',example:'Descarga la plantilla, completa nombres, matrícula, área, grupo, semestre y ciclo, y revisa el resultado antes de continuar.'},
+      {title:'Maestros',how:'Registra y mantiene los expedientes del personal docente; vincula sus cuentas desde “Usuarios”.',example:'Registra primero a Marta Demo y después crea su cuenta de Maestro vinculada a esa ficha.'},
+      {title:'Tutores',how:'Registra los datos de contacto de madres, padres o encargados antes de crear vínculos familiares.',example:'Agrega un teléfono con código de país para identificar el contacto institucional.'},
+      {title:'Vínculos familiares',how:'Relaciona el expediente del tutor con el del alumno para autorizar el acceso familiar.',example:'Selecciona una ficha de tutor, una de alumno y el parentesco correspondiente.'}
+    ]},
+    {title:'Organización',items:[
+      {title:'Áreas y grupos',how:'Crea áreas académicas y grupos con ciclo y semestre para organizar las inscripciones.',example:'Crea el grupo 1A dentro de Bachillerato General para el ciclo 2026–2027.'},
+      {title:'Materias',how:'Registra el nombre oficial y la clave de cada asignatura.',example:'Agrega “Matemáticas” con la clave institucional usada por la escuela.'},
+      {title:'Inscripciones',how:'Asigna alumnos a grupos y ciclos; usa el estado activo solo para matrículas vigentes.',example:'Inscribe a un alumno de nuevo ingreso en 1A y verifica que aparezca en la lista de clase.'},
+      {title:'Horarios',how:'Asigna día, hora, materia, docente, grupo y aula. Revisa los cruces antes de guardar.',example:'Programa Matemáticas con Marta Demo para 1A el lunes de 08:00 a 08:50; imprime la hoja del grupo para revisarla.'},
+      {title:'Calendario',how:'Marca días lectivos, festivos o suspensiones. Las listas y jornadas dependen de que la fecha tenga un tipo lectivo válido.',example:'Registra una suspensión antes de un asueto para impedir que se abra una jornada escolar ese día.'}
+    ]},
+    {title:'Asistencia',items:[
+      {title:'Jornadas',how:'Habilita el periodo de registro de entradas de una fecha lectiva.',example:'Crea la jornada de la mañana con su hora de apertura y cierre antes de publicar el QR.'},
+      {title:'QR diario',how:'Genera o renueva el código de la jornada activa; el QR cambia y vence periódicamente.',example:'Muestra el QR en la entrada y renuévalo si caduca.'},
+      {title:'Escáner de credenciales',how:'Escanea el QR del gafete, confirma visualmente que corresponde al alumno y registra la entrada.',example:'Si aparecen alumnos homónimos, compara el gafete y el expediente antes de confirmar.'},
+      {title:'Entradas',how:'Consulta los registros de entrada vinculados a las jornadas.',example:'Filtra la lista para revisar quién registró su entrada durante la jornada de la mañana.'},
+      {title:'Listas de clase',how:'Consulta las listas abiertas y cerradas. Las asistencias se deben capturar según lo observado en clase.',example:'Revisa que el docente haya asignado presente, retardo o falta a cada alumno antes de cerrar la lista.'},
+      {title:'Faltas',how:'Consulta las ausencias registradas al cerrar las listas y el estado de su justificación.',example:'Busca las faltas de una fecha y revisa si alguna quedó justificada.'},
+      {title:'Retardos',how:'Consulta los retardos registrados en las listas cerradas.',example:'Filtra por fecha para dar seguimiento a los retardos de un grupo.'},
+      {title:'Justificaciones',how:'Revisa las solicitudes y autoriza o rechaza cada una con base en la información disponible.',example:'Abre una solicitud pendiente, comprueba el motivo y elige “Autorizar” o “Rechazar”.'},
+      {title:'Permisos',how:'Revisa las solicitudes de salida de tutores y cambia su estado según la decisión institucional.',example:'Verifica alumno, fecha y motivo antes de autorizar un permiso.'}
+    ]},
+    {title:'Académico',items:[
+      {title:'Periodos',how:'Define fechas y escala de cada periodo de evaluación.',example:'Crea el primer periodo con las fechas oficiales y una escala de 0 a 100.'},
+      {title:'Calificaciones',how:'Consulta las notas capturadas por los docentes en los grupos y materias asignados.',example:'Revisa que las notas del periodo correspondan a alumnos inscritos en el grupo.'},
+      {title:'Boletas',how:'Publica o retira boletas una vez revisadas las calificaciones.',example:'Abre el periodo correcto y publica la boleta del alumno después de validar sus notas.'}
+    ]},
+    {title:'Comunicación',items:[
+      {title:'Mensajes',how:'Envía un mensaje interno a las cuentas seleccionadas. No equivale a un correo o SMS.',example:'Envía a los maestros un aviso interno sobre un cambio de aula.'},
+      {title:'Avisos',how:'Redacta y publica comunicados para todos o para un tipo de cuenta; puedes definir su vigencia.',example:'Publica un aviso para tutores con la fecha límite de entrega de documentos.'}
+    ]}
+  ],
+  maestro:[
+    {title:'General',items:[
+      {title:'Resumen',how:'Usa los accesos rápidos para abrir tu horario, tomar asistencia, capturar calificaciones o ver avisos.',example:'Pulsa “Tomar asistencia” para ir a tus listas de clase.'}
+    ]},
+    {title:'Mi espacio',items:[
+      {title:'Mi perfil',how:'Consulta tu información institucional y completa los datos de contacto disponibles.',example:'Añade un teléfono de contacto y guarda los cambios.'}
+    ]},
+    {title:'Asistencia',items:[
+      {title:'Mi horario',how:'Consulta las sesiones vinculadas a tu ficha, con grupo, materia y hora.',example:'Busca la clase de 1A del lunes para confirmar el aula antes de entrar al grupo.'},
+      {title:'Listas de clase',how:'Abre la lista desde una clase asignada para hoy. Cada alumno inicia pendiente; selecciona el estado observado y cierra la lista cuando termines.',example:'Marca “Presente” solo a quien asistió, “Retardo” a quien llegó tarde y “Ausente” a quien faltó.'},
+      {title:'Faltas',how:'Consulta las ausencias generadas al cerrar tus listas.',example:'Revisa la fecha y el grupo de una falta antes de responder una solicitud de justificación.'},
+      {title:'Retardos',how:'Consulta los retardos registrados en tus clases.',example:'Abre el registro del día para verificar un retardo capturado en la lista.'}
+    ]},
+    {title:'Académico',items:[
+      {title:'Calificaciones',how:'Captura notas únicamente para alumnos, materias y grupos que tengas asignados y dentro del periodo disponible.',example:'Elige 1A, Matemáticas y el periodo abierto; captura la nota del alumno según la evaluación.'}
+    ]},
+    {title:'Comunicación',items:[
+      {title:'Avisos',how:'Lee los comunicados institucionales dirigidos a tu cuenta.',example:'Abre un aviso de Dirección para consultar la fecha y el lugar de una reunión.'}
+    ]}
+  ],
+  tutor:[
+    {title:'General',items:[
+      {title:'Resumen',how:'Usa los accesos rápidos para consultar entradas, permisos, calificaciones y expedientes vinculados.',example:'Elige “Consultar entradas” para revisar los registros del alumno seleccionado.'}
+    ]},
+    {title:'Familia y perfil',items:[
+      {title:'Vincular alumno',how:'Solicita el vínculo con el expediente del alumno para que Dirección lo revise.',example:'Busca al alumno por nombre o matrícula y envía la solicitud solo si el expediente es correcto.'},
+      {title:'Mi perfil',how:'Consulta tus datos de cuenta y completa los datos de contacto que estén disponibles.',example:'Actualiza el teléfono para que la escuela tenga un contacto vigente.'}
+    ]},
+    {title:'Asistencia',items:[
+      {title:'Mi horario',how:'Consulta el horario del alumno vinculado.',example:'Cambia el expediente en el selector familiar y revisa el horario del alumno correspondiente.'},
+      {title:'Entradas',how:'Consulta las entradas registradas para el alumno seleccionado.',example:'Verifica la hora de entrada de hoy y la jornada asociada.'},
+      {title:'Faltas',how:'Consulta las faltas y su estado.',example:'Abre una falta reciente y revisa si ya existe una justificación.'},
+      {title:'Retardos',how:'Consulta los retardos registrados para el alumno.',example:'Filtra por fecha para encontrar el retardo que quieres justificar.'},
+      {title:'Justificaciones',how:'Elige una falta o retardo pendiente, explica el motivo y envía la solicitud a Dirección.',example:'Selecciona la falta del lunes y escribe el motivo con información verificable.'},
+      {title:'Permisos',how:'Solicita permiso para el alumno y espera la resolución de Dirección.',example:'Indica la fecha y el motivo de la salida; el permiso no estará autorizado hasta que Dirección lo apruebe.'}
+    ]},
+    {title:'Académico',items:[
+      {title:'Calificaciones',how:'Consulta calificaciones que la institución ya haya publicado para el alumno.',example:'Abre el periodo publicado para revisar las notas de Matemáticas.'},
+      {title:'Boletas',how:'Consulta las boletas disponibles para el alumno.',example:'Selecciona la boleta del periodo vigente para revisar el resumen académico.'}
+    ]},
+    {title:'Comunicación',items:[
+      {title:'Mensajes',how:'Lee los mensajes internos enviados a tu cuenta.',example:'Abre un mensaje de Dirección para revisar una solicitud de documentos.'},
+      {title:'Avisos',how:'Lee los comunicados institucionales visibles para tutores.',example:'Consulta un aviso sobre horarios de reunión.'}
+    ]}
+  ],
+  alumno:[
+    {title:'General',items:[
+      {title:'Resumen',how:'Usa los accesos rápidos para registrar una entrada, ver tu credencial, consultar calificaciones o abrir tu horario.',example:'Pulsa “Ver mi credencial” para mostrar el código QR de tu expediente.'}
+    ]},
+    {title:'Mi espacio',items:[
+      {title:'Mi perfil',how:'Consulta tu credencial digital y completa los datos de contacto permitidos.',example:'Agrega un correo de contacto para que la institución pueda actualizar tu expediente.'}
+    ]},
+    {title:'Asistencia',items:[
+      {title:'Mi horario',how:'Consulta tus clases asignadas por día y hora.',example:'Revisa qué materia tienes después del receso.'},
+      {title:'Entradas',how:'Registra tu entrada con el QR vigente de la jornada y consulta las entradas registradas.',example:'Escanea el QR de la escuela y confirma la operación antes de salir de la página.'},
+      {title:'Faltas',how:'Consulta las faltas registradas y si están justificadas.',example:'Abre una falta para comprobar su fecha y estado.'},
+      {title:'Retardos',how:'Consulta los retardos registrados en tus clases.',example:'Busca el registro del día para verificar cuándo se capturó.'},
+      {title:'Permisos',how:'Consulta únicamente los permisos que Dirección ya autorizó; no puedes solicitar ni aprobar permisos desde esta cuenta.',example:'Revisa la fecha y el estado de un permiso autorizado antes de usarlo.'}
+    ]},
+    {title:'Académico',items:[
+      {title:'Calificaciones',how:'Consulta las calificaciones publicadas para tu cuenta.',example:'Abre un periodo para revisar las notas disponibles.'},
+      {title:'Boletas',how:'Consulta las boletas que Dirección haya publicado.',example:'Selecciona la boleta más reciente para revisar el resultado del periodo.'}
+    ]},
+    {title:'Comunicación',items:[
+      {title:'Mensajes',how:'Lee los mensajes internos enviados a tu cuenta.',example:'Abre un mensaje de tu maestro para revisar indicaciones de una actividad.'},
+      {title:'Avisos',how:'Lee los avisos institucionales dirigidos a alumnos.',example:'Consulta la fecha y las instrucciones de un aviso de evaluación.'}
+    ]}
+  ]
+};
 const exportablePages=new Set(['alumnos','maestros','tutores','grupos','materias','horarios','asistencias','listas_asistencia','faltas','retardos','justificaciones','calificaciones','boletas','mensajes','avisos_escolares']);
 let currentPage = 'dashboard';
 let selectedFamilyStudent='';
@@ -213,6 +327,23 @@ function metric(label,value,icon) {
   const top=document.createElement('div');top.className='metric-top';const name=document.createElement('span');name.textContent=label;const mark=document.createElement('span');mark.className='metric-icon';mark.textContent=icon;
   const amount=document.createElement('strong');amount.textContent=Number(value).toLocaleString('es-GT');item.append(top,amount);top.append(name,mark);return item;
 }
+function renderUserGuide(){
+  const sections=userGuideContent[me?.rol]??[];
+  if(!sections.length){const error=document.createElement('div');error.className='error-state';error.textContent='No hay una guía configurada para este tipo de cuenta.';$('#list').replaceChildren(error);return;}
+  const intro=document.createElement('section');intro.className='user-guide-intro';const heading=document.createElement('h4');heading.textContent=`Guía para ${roleName[me.rol]}`;const description=document.createElement('p');description.textContent='Esta guía corresponde a las opciones disponibles en tu cuenta. Despliega cada opción para ver cómo usarla y un ejemplo.';intro.append(heading,description);
+  const guide=document.createElement('div');guide.className='user-guide-sections';
+  for(const sectionData of sections){
+    const section=document.createElement('section');section.className='user-guide-section';const title=document.createElement('h4');title.textContent=sectionData.title;const topics=document.createElement('div');topics.className='user-guide-topics';
+    for(const item of sectionData.items){
+      const topic=document.createElement('details');topic.className='user-guide-topic';const summary=document.createElement('summary');summary.textContent=item.title;
+      const how=document.createElement('p');const howLabel=document.createElement('strong');howLabel.textContent='Cómo usarla: ';how.append(howLabel,document.createTextNode(item.how));
+      const example=document.createElement('p');const exampleLabel=document.createElement('strong');exampleLabel.textContent='Ejemplo: ';example.append(exampleLabel,document.createTextNode(item.example));
+      topic.append(summary,how,example);topics.append(topic);
+    }
+    section.append(title,topics);guide.append(section);
+  }
+  $('#list').replaceChildren(intro,guide);
+}
 async function showPortal(user) {
   $('#login').classList.add('hidden');$('#portal').classList.remove('hidden');$('#session-indicator').classList.remove('hidden');
   $('#welcome-kicker').textContent=`PORTAL DE ${roleName[user.rol]?.toUpperCase() ?? user.rol.toUpperCase()}`;
@@ -225,15 +356,16 @@ async function showPortal(user) {
   if(user.rol==='direccion')try{const rows=await api('/api/configuracion');if(rows[0])for(const [key,value] of Object.entries(rows[0])){const field=$(`#settings-form [name="${key}"]`);if(field)field.value=value}}catch{}
   $('#student-switch').classList.toggle('hidden',user.rol!=='tutor');
   if(user.rol==='tutor')try{const children=await api('/api/mis-alumnos'),select=$('#student-select');select.replaceChildren(...children.map(child=>{const option=document.createElement('option');option.value=child.id;option.textContent=[child.nombres,child.apellidos].filter(Boolean).join(' ');return option}));selectedFamilyStudent=children[0]?.id??'';if(children.length>1)$('#student-switch').classList.remove('hidden');select.onchange=()=>{selectedFamilyStudent=select.value;loadPage(currentPage,labels[currentPage]??'Información',document.querySelector('.nav-link.active'));};}catch{}
-  const pages=user.rol==='direccion'
-    ? [['dashboard','Resumen','⌂','General'],['usuarios','Usuarios','♙','Administración'],['solicitudes_cuenta','Solicitudes de cuenta','✉','Administración'],['configuracion','Configuración','⚙','Administración'],['alumnos','Alumnos','◉','Comunidad'],['maestros','Maestros','♧','Comunidad'],['tutores','Tutores','♡','Comunidad'],['relaciones_tutores','Vínculos familiares','↔','Comunidad'],['organizacion','Áreas y grupos','▦','Organización'],['materias','Materias','▱','Organización'],['inscripciones','Inscripciones','⊞','Organización'],['horarios','Horarios','◷','Organización'],['calendario_escolar','Calendario','▣','Organización'],['jornadas','Jornadas','◷','Asistencia'],['qr_diarios','QR diario','▦','Asistencia'],['escaner_credenciales','Escáner de credenciales','▣','Asistencia'],['asistencias','Entradas','↗','Asistencia'],['listas_asistencia','Listas de clase','☷','Asistencia'],['faltas','Faltas','!','Asistencia'],['retardos','Retardos','◴','Asistencia'],['justificaciones','Justificaciones','✓','Asistencia'],['permisos','Permisos','▤','Asistencia'],['periodos_evaluacion','Periodos','▤','Académico'],['calificaciones','Calificaciones','☆','Académico'],['boletas','Boletas','▧','Académico'],['mensajes','Mensajes','✉','Comunicación'],['avisos_escolares','Avisos','◉','Comunicación'],['backups','Copias de seguridad','⤓','Administración']]
-    : user.rol==='maestro' ? [['perfil','Mi perfil','♙','Mi espacio'],['horarios','Mi horario','◷','Asistencia'],['listas_asistencia','Listas de clase','☷','Asistencia'],['faltas','Faltas','!','Asistencia'],['retardos','Retardos','◴','Asistencia'],['calificaciones','Calificaciones','☆','Académico'],['avisos_escolares','Avisos','◉','Comunicación']]
-    : [['vincular_alumno','Vincular alumno','↔','Familia'],['perfil','Mi perfil','♙','Mi espacio'],['horarios','Mi horario','◷','Asistencia'],['asistencias','Entradas','↗','Asistencia'],['faltas','Faltas','!','Asistencia'],['retardos','Retardos','◴','Asistencia'],...(user.rol==='tutor'?[['justificaciones','Justificaciones','✓','Asistencia'],['permisos','Permisos','▤','Asistencia']]:user.rol==='alumno'?[['permisos','Permisos','▤','Asistencia']]:[]),['calificaciones','Calificaciones','☆','Académico'],['boletas','Boletas','▧','Académico'],['mensajes','Mensajes','✉','Comunicación'],['avisos_escolares','Avisos','◉','Comunicación']];
+  let pages;
+  if(user.rol==='direccion')pages=[['dashboard','Resumen','⌂','General'],['usuarios','Usuarios','♙','Administración'],['solicitudes_cuenta','Solicitudes de cuenta','✉','Administración'],['configuracion','Configuración','⚙','Administración'],['alumnos','Alumnos','◉','Comunidad'],['maestros','Maestros','♧','Comunidad'],['tutores','Tutores','♡','Comunidad'],['relaciones_tutores','Vínculos familiares','↔','Comunidad'],['organizacion','Áreas y grupos','▦','Organización'],['materias','Materias','▱','Organización'],['inscripciones','Inscripciones','⊞','Organización'],['horarios','Horarios','◷','Organización'],['calendario_escolar','Calendario','▣','Organización'],['jornadas','Jornadas','◷','Asistencia'],['qr_diarios','QR diario','▦','Asistencia'],['escaner_credenciales','Escáner de credenciales','▣','Asistencia'],['asistencias','Entradas','↗','Asistencia'],['listas_asistencia','Listas de clase','☷','Asistencia'],['faltas','Faltas','!','Asistencia'],['retardos','Retardos','◴','Asistencia'],['justificaciones','Justificaciones','✓','Asistencia'],['permisos','Permisos','▤','Asistencia'],['periodos_evaluacion','Periodos','▤','Académico'],['calificaciones','Calificaciones','☆','Académico'],['boletas','Boletas','▧','Académico'],['mensajes','Mensajes','✉','Comunicación'],['avisos_escolares','Avisos','◉','Comunicación'],['backups','Copias de seguridad','⤓','Administración']];
+  else if(user.rol==='maestro')pages=[['perfil','Mi perfil','♙','Mi espacio'],['horarios','Mi horario','◷','Asistencia'],['listas_asistencia','Listas de clase','☷','Asistencia'],['faltas','Faltas','!','Asistencia'],['retardos','Retardos','◴','Asistencia'],['calificaciones','Calificaciones','☆','Académico'],['avisos_escolares','Avisos','◉','Comunicación']];
+  else if(user.rol==='tutor')pages=[['vincular_alumno','Vincular alumno','↔','Familia'],['perfil','Mi perfil','♙','Mi espacio'],['horarios','Mi horario','◷','Asistencia'],['asistencias','Entradas','↗','Asistencia'],['faltas','Faltas','!','Asistencia'],['retardos','Retardos','◴','Asistencia'],['justificaciones','Justificaciones','✓','Asistencia'],['permisos','Permisos','▤','Asistencia'],['calificaciones','Calificaciones','☆','Académico'],['boletas','Boletas','▧','Académico'],['mensajes','Mensajes','✉','Comunicación'],['avisos_escolares','Avisos','◉','Comunicación']];
+  else pages=[['perfil','Mi perfil','♙','Mi espacio'],['horarios','Mi horario','◷','Asistencia'],['asistencias','Entradas','↗','Asistencia'],['faltas','Faltas','!','Asistencia'],['retardos','Retardos','◴','Asistencia'],['permisos','Permisos','▤','Asistencia'],['calificaciones','Calificaciones','☆','Académico'],['boletas','Boletas','▧','Académico'],['mensajes','Mensajes','✉','Comunicación'],['avisos_escolares','Avisos','◉','Comunicación']];
   if(user.rol!=='direccion')pages.unshift(['dashboard','Resumen','⌂','General']);
-  if(user.rol==='alumno')pages.splice(1,1);
   const groups=[];
   for(const [key,title,icon,group='Mi espacio'] of pages){let section=groups.find(x=>x.group===group);if(!section){section={group,items:[]};groups.push(section)}section.items.push({key,title,icon});}
-  $('#nav').replaceChildren(...groups.map((section,groupIndex)=>{const fragment=document.createDocumentFragment();const heading=document.createElement('span');heading.className='nav-heading';heading.style.setProperty('--menu-delay',`${Math.min(groupIndex,6)*35}ms`);const toggle=document.createElement('button');toggle.className='nav-heading-toggle';toggle.type='button';toggle.setAttribute('aria-expanded','true');toggle.setAttribute('aria-controls',`nav-group-${groupIndex}`);const title=document.createElement('span');title.textContent=section.group;const chevron=document.createElement('span');chevron.className='nav-chevron';chevron.setAttribute('aria-hidden','true');chevron.textContent='⌄';toggle.append(title,chevron);const items=document.createElement('div');items.className='nav-group-items';items.id=`nav-group-${groupIndex}`;toggle.onclick=()=>{const expanded=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!expanded));items.hidden=expanded;};heading.append(toggle);fragment.append(heading,items);items.append(...section.items.map((item,itemIndex)=>{const b=document.createElement('button');b.className='nav-link';b.dataset.page=item.key;b.style.setProperty('--menu-delay',`${Math.min(itemIndex+1,6)*35}ms`);b.innerHTML=`<span class="nav-icon">${item.icon}</span><span>${item.title}</span>`;b.onclick=()=>{loadPage(item.key,item.title,b);setNavigationOpen(false);document.querySelector('.main-column').scrollIntoView({behavior:'smooth',block:'start'});};return b;}));return fragment;}));
+  const guideArea=document.createElement('div');guideArea.className='nav-guide-area';const guideButton=document.createElement('button');guideButton.type='button';guideButton.className='nav-link nav-guide-link';guideButton.dataset.page='guia_usuario';const guideIcon=document.createElement('span');guideIcon.className='nav-icon';guideIcon.textContent='?';const guideTitle=document.createElement('span');guideTitle.textContent=labels.guia_usuario;guideButton.append(guideIcon,guideTitle);guideButton.onclick=()=>{loadPage('guia_usuario',labels.guia_usuario,guideButton);setNavigationOpen(false);document.querySelector('.main-column').scrollIntoView({behavior:'smooth',block:'start'});};guideArea.append(guideButton);
+  $('#nav').replaceChildren(...groups.map((section,groupIndex)=>{const fragment=document.createDocumentFragment();const heading=document.createElement('span');heading.className='nav-heading';heading.style.setProperty('--menu-delay',`${Math.min(groupIndex,6)*35}ms`);const toggle=document.createElement('button');toggle.className='nav-heading-toggle';toggle.type='button';toggle.setAttribute('aria-expanded','true');toggle.setAttribute('aria-controls',`nav-group-${groupIndex}`);const title=document.createElement('span');title.textContent=section.group;const chevron=document.createElement('span');chevron.className='nav-chevron';chevron.setAttribute('aria-hidden','true');chevron.textContent='⌄';toggle.append(title,chevron);const items=document.createElement('div');items.className='nav-group-items';items.id=`nav-group-${groupIndex}`;toggle.onclick=()=>{const expanded=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!expanded));items.hidden=expanded;};heading.append(toggle);fragment.append(heading,items);items.append(...section.items.map((item,itemIndex)=>{const b=document.createElement('button');b.className='nav-link';b.dataset.page=item.key;b.style.setProperty('--menu-delay',`${Math.min(itemIndex+1,6)*35}ms`);b.innerHTML=`<span class="nav-icon">${item.icon}</span><span>${item.title}</span>`;b.onclick=()=>{loadPage(item.key,item.title,b);setNavigationOpen(false);document.querySelector('.main-column').scrollIntoView({behavior:'smooth',block:'start'});};return b;}));return fragment;}),guideArea);
   $('#portal-menu-button').classList.remove('hidden');
   const initialPage=user.rol==='direccion'?['dashboard','Resumen']:pages[0],initialButton=$(`#nav .nav-link[data-page="${initialPage[0]}"]`);
   await loadPage(initialPage[0],initialPage[1],initialButton);
@@ -241,11 +373,12 @@ async function showPortal(user) {
 }
 async function loadPage(key,title,button,offset=0) {
   credentialScannerCleanup?.();credentialScannerCleanup=undefined;clearTimeout(qrRotationTimer);clearInterval(attendanceRefreshTimer);attendanceRefreshTimer=undefined;if(key!==currentPage){offset=0;searchTerm='';statusFilter='';editingId=null;studentImportFeedback=null;clearTimeout(recordStatusTimer);$('#record-search').value='';for(const selector of ['#record-result','#account-result','#reset-result','#settings-result'])$(selector).textContent='';}currentPage=key;currentOffset=offset;updateRecordFilter(key);document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));button?.classList.add('active');
-  $('#record-search').classList.toggle('hidden',key==='dashboard'||key==='perfil'||key==='backups'||key==='vincular_alumno');$('#record-search').placeholder=key==='usuarios'?'Buscar por nombre o correo…':'Buscar registros';$('#record-search').setAttribute('aria-label',key==='usuarios'?'Buscar usuarios por nombre o correo':'Buscar registros');
-  $('#dashboard-content').replaceChildren();$('#list-title').textContent=title;$('#module-kicker').textContent=key==='dashboard'?'VISTA GENERAL':'REGISTROS ESCOLARES';const loading=document.createElement('div');loading.className='loading';loading.setAttribute('role','status');loading.textContent='Cargando información…';$('#list').replaceChildren(loading);
+  $('#record-search').classList.toggle('hidden',key==='dashboard'||key==='perfil'||key==='backups'||key==='vincular_alumno'||key==='guia_usuario');$('#record-search').placeholder=key==='usuarios'?'Buscar por nombre o correo…':'Buscar registros';$('#record-search').setAttribute('aria-label',key==='usuarios'?'Buscar usuarios por nombre o correo':'Buscar registros');
+  $('#dashboard-content').replaceChildren();$('#list-title').textContent=title;$('#module-kicker').textContent=key==='dashboard'?'VISTA GENERAL':key==='guia_usuario'?'AYUDA PARA TU CUENTA':'REGISTROS ESCOLARES';const loading=document.createElement('div');loading.className='loading';loading.setAttribute('role','status');loading.textContent='Cargando información…';$('#list').replaceChildren(loading);
   const isDirection=me?.rol==='direccion';$('#account-admin').classList.toggle('hidden',!isDirection||key!=='usuarios');$('#settings-admin').classList.toggle('hidden',!isDirection||key!=='configuracion');
   const canCreate=isDirection&&forms[key];$('#record-admin').classList.toggle('hidden',!canCreate);if(canCreate)await buildRecordForm(key);
   try {
+    if(key==='guia_usuario'){renderUserGuide();return;}
     if(key==='vincular_alumno'&&me?.rol==='tutor'){$('#list').replaceChildren();await renderTutorLinkAction();return;}
     if(key==='organizacion'){const [areas,groups,terms]=await Promise.all([api('/api/especialidades?limit=200'),api('/api/grupos?limit=200'),api('/api/semestres?limit=100')]);$('#list').replaceChildren();await renderOrganization(areas,groups,terms);return;}
     if(key==='escaner_credenciales'&&me?.rol==='direccion'){$('#dashboard-content').replaceChildren();$('#list').replaceChildren();await renderCredentialScanner();return;}
