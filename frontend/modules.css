@@ -10,3 +10,26 @@
  .user-guide-intro{margin-bottom:14px;padding:16px;border:1px solid #dfe9e2;border-radius:13px;background:#f6faf7}.user-guide-intro h4,.user-guide-section h4{margin:0;color:#2e4a3c;font-size:14px}.user-guide-intro p{margin:6px 0 0;color:#65776d;font-size:12px;line-height:1.55}.user-guide-sections{display:grid;gap:12px}.user-guide-section{padding:15px;border:1px solid #e2ebe4;border-radius:13px;background:#fff}.user-guide-section>h4{margin-bottom:9px}.user-guide-topics{display:grid;gap:7px}.user-guide-topic{border:1px solid #e7ede8;border-radius:9px;background:#fbfdfb}.user-guide-topic summary{padding:10px 12px;color:#355544;font-size:12px;font-weight:700;cursor:pointer}.user-guide-topic summary:focus-visible{outline:2px solid var(--green);outline-offset:2px}.user-guide-topic p{margin:0;padding:0 12px 10px;color:#62736a;font-size:11px;line-height:1.55}.user-guide-topic p+p{padding-top:0}.user-guide-topic strong{color:#344e40}
 @media(max-width:600px){.schedule-sheet{padding:12px}.schedule-metadata{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media print{@page{size:A4 landscape;margin:10mm}body.printing-schedule .topbar,body.printing-schedule .welcome,body.printing-schedule .sidebar,body.printing-schedule footer{display:none!important}body.printing-schedule .shell{max-width:none;padding:0}body.printing-schedule .workspace{display:block}body.printing-schedule .module-card{margin:0;padding:0;border:0;box-shadow:none}body.printing-schedule .section-heading,body.printing-schedule #dashboard-content,body.printing-schedule #list>*:not(.schedule-sheet){display:none!important}body.printing-schedule #list{display:block}body.printing-schedule .schedule-sheet{margin:0 0 8mm;padding:0;border:0;border-radius:0;box-shadow:none;break-after:page;page-break-after:always}body.printing-schedule .schedule-sheet:last-child{break-after:auto;page-break-after:auto}body.printing-schedule .schedule-sheet-heading h3{font-size:16px}body.printing-schedule .schedule-table{min-width:0;font-size:8px}body.printing-schedule .schedule-table th,body.printing-schedule .schedule-table td{padding:5px 4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+.user-guide-topic .user-guide-start{margin:0 12px 12px}
+.user-guide-start,.user-guide-secondary{min-height:40px;padding:9px 14px;border:1px solid #2e5e49;border-radius:9px;background:#2e5e49;color:#fff;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.user-guide-start:hover{background:#244a39}
+.user-guide-start:focus-visible,.user-guide-secondary:focus-visible,.user-guide-close:focus-visible{outline:2px solid #4f9b72;outline-offset:2px}
+.user-guide-start:disabled,.user-guide-secondary:disabled{opacity:.55;cursor:not-allowed}
+.user-guide-dialog{width:min(560px,calc(100vw - 28px));max-width:560px;max-height:min(80vh,720px);margin:auto;padding:0;overflow:hidden;border:1px solid #dce8df;border-radius:16px;background:#fff;color:#2d4035;box-shadow:0 20px 70px #14271e40;font-family:inherit}
+.user-guide-dialog::backdrop{background:#17251dcc;backdrop-filter:blur(2px)}
+.user-guide-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid #e5ede7}
+.user-guide-dialog-header h2{margin:0;color:#254b38;font-size:18px}
+.user-guide-close{width:36px;height:36px;border:0;border-radius:50%;background:#f1f6f2;color:#355544;font-size:23px;line-height:1;cursor:pointer}
+.user-guide-dialog-body{max-height:calc(80vh - 145px);overflow-y:auto;padding:20px}
+.user-guide-progress{display:grid;gap:8px;margin-bottom:22px}
+.user-guide-progress-label{color:#5d7466;font-size:11px;font-weight:700}
+.user-guide-progress-track{height:6px;overflow:hidden;border-radius:8px;background:#e8efe9}
+.user-guide-progress-fill{display:block;height:100%;border-radius:inherit;background:#448360;transition:width .2s ease}
+.user-guide-step-title{margin:0 0 9px;color:#294a38;font-size:16px}
+.user-guide-step-text{margin:0;color:#596c60;font-size:13px;line-height:1.65}
+.user-guide-section-action{display:grid;justify-items:start;gap:8px;margin-top:22px;padding-top:16px;border-top:1px solid #e8eee9}
+.user-guide-section-status{min-height:16px;margin:0;color:#61766a;font-size:11px;line-height:1.5}
+.user-guide-dialog-footer{display:flex;justify-content:space-between;gap:10px;padding:14px 20px;border-top:1px solid #e5ede7;background:#f9fbf9}
+.user-guide-secondary{border-color:#d6e2d9;background:#fff;color:#355544}
+.user-guide-secondary:hover{background:#f1f6f2}
+@media(max-width:600px){.user-guide-dialog{width:calc(100vw - 20px);max-height:85vh}.user-guide-dialog-body{max-height:calc(85vh - 145px);padding:16px}.user-guide-dialog-header,.user-guide-dialog-footer{padding-right:16px;padding-left:16px}}

@@ -147,6 +147,14 @@ const userGuideContent = {
     ]}
   ]
 };
+const userGuideRoutes = {
+  'Resumen':'dashboard','Usuarios':'usuarios','Solicitudes de cuenta':'solicitudes_cuenta','Configuración':'configuracion','Copias de seguridad':'backups',
+  'Alumnos':'alumnos','Maestros':'maestros','Tutores':'tutores','Vínculos familiares':'relaciones_tutores','Áreas y grupos':'organizacion',
+  'Materias':'materias','Inscripciones':'inscripciones','Horarios':'horarios','Mi horario':'horarios','Calendario':'calendario_escolar',
+  'Jornadas':'jornadas','QR diario':'qr_diarios','Escáner de credenciales':'escaner_credenciales','Entradas':'asistencias','Listas de clase':'listas_asistencia',
+  'Faltas':'faltas','Retardos':'retardos','Justificaciones':'justificaciones','Permisos':'permisos','Periodos':'periodos_evaluacion',
+  'Calificaciones':'calificaciones','Boletas':'boletas','Mensajes':'mensajes','Avisos':'avisos_escolares','Mi perfil':'perfil','Vincular alumno':'vincular_alumno'
+};
 const exportablePages=new Set(['alumnos','maestros','tutores','grupos','materias','horarios','asistencias','listas_asistencia','faltas','retardos','justificaciones','calificaciones','boletas','mensajes','avisos_escolares']);
 let currentPage = 'dashboard';
 let selectedFamilyStudent='';
@@ -327,10 +335,75 @@ function metric(label,value,icon) {
   const top=document.createElement('div');top.className='metric-top';const name=document.createElement('span');name.textContent=label;const mark=document.createElement('span');mark.className='metric-icon';mark.textContent=icon;
   const amount=document.createElement('strong');amount.textContent=Number(value).toLocaleString('es-GT');item.append(top,amount);top.append(name,mark);return item;
 }
+function openUserGuideWalkthrough(item,startButton) {
+  const route=userGuideRoutes[item.title];
+  const steps=[
+    {title:'Abre esta sección',text:`Pulsa “Ir a la sección” para abrir ${item.title}. La guía permanecerá abierta para que puedas seguir los pasos.`},
+    {title:'Sigue estos pasos',text:item.how},
+    {title:'Prueba con este ejemplo',text:item.example}
+  ];
+  const dialog=document.createElement('dialog');dialog.className='user-guide-dialog';dialog.setAttribute('aria-labelledby','user-guide-dialog-title');
+  const header=document.createElement('header');header.className='user-guide-dialog-header';
+  const title=document.createElement('h2');title.id='user-guide-dialog-title';title.textContent=item.title;
+  const close=document.createElement('button');close.type='button';close.className='user-guide-close';close.setAttribute('aria-label','Cerrar guía');close.textContent='×';close.onclick=()=>dialog.close();
+  header.append(title,close);
+  const body=document.createElement('div');body.className='user-guide-dialog-body';
+  const progress=document.createElement('div');progress.className='user-guide-progress';
+  const progressLabel=document.createElement('span');progressLabel.className='user-guide-progress-label';
+  const progressTrack=document.createElement('div');progressTrack.className='user-guide-progress-track';progressTrack.setAttribute('role','progressbar');progressTrack.setAttribute('aria-valuemin','1');progressTrack.setAttribute('aria-valuemax',String(steps.length));
+  const progressFill=document.createElement('span');progressFill.className='user-guide-progress-fill';progressTrack.append(progressFill);progress.append(progressLabel,progressTrack);
+  const stepTitle=document.createElement('h3');stepTitle.className='user-guide-step-title';
+  const stepText=document.createElement('p');stepText.className='user-guide-step-text';
+  const sectionAction=document.createElement('div');sectionAction.className='user-guide-section-action';
+  const goToSection=document.createElement('button');goToSection.type='button';goToSection.className='user-guide-start';goToSection.textContent='Ir a la sección';
+  const sectionStatus=document.createElement('p');sectionStatus.className='user-guide-section-status';sectionStatus.setAttribute('role','status');
+  goToSection.disabled=!route;
+  if(!route)sectionStatus.textContent='Esta opción todavía no tiene una sección vinculada.';
+  goToSection.onclick=async()=>{
+    const navButton=document.querySelector(`#nav .nav-link[data-page="${route}"]`);
+    if(!route||!navButton){sectionStatus.textContent='No se encontró esta opción en el menú de tu cuenta.';return;}
+    goToSection.disabled=true;
+    sectionStatus.textContent='Abriendo la sección…';
+    try {
+      await loadPage(route,labels[route]??item.title,navButton);
+      document.querySelector('.main-column')?.scrollIntoView({behavior:'smooth',block:'start'});
+      sectionStatus.textContent=`${labels[route]??item.title} está abierto detrás de esta guía.`;
+      goToSection.textContent='Sección abierta';
+    } catch(error) {
+      sectionStatus.textContent=error.message;
+      goToSection.disabled=false;
+    }
+  };
+  sectionAction.append(goToSection,sectionStatus);
+  body.append(progress,stepTitle,stepText,sectionAction);
+  const footer=document.createElement('footer');footer.className='user-guide-dialog-footer';
+  const previous=document.createElement('button');previous.type='button';previous.className='user-guide-secondary';previous.textContent='Anterior';
+  const next=document.createElement('button');next.type='button';next.className='user-guide-start';
+  footer.append(previous,next);
+  dialog.append(header,body,footer);
+  let currentStep=0;
+  const updateStep=()=>{
+    const step=steps[currentStep];
+    progressLabel.textContent=`Paso ${currentStep+1} de ${steps.length}`;
+    progressTrack.setAttribute('aria-valuenow',String(currentStep+1));
+    progressFill.style.width=`${((currentStep+1)/steps.length)*100}%`;
+    stepTitle.textContent=step.title;
+    stepText.textContent=step.text;
+    previous.disabled=currentStep===0;
+    next.textContent=currentStep===steps.length-1?'Terminar guía':'Siguiente';
+  };
+  previous.onclick=()=>{if(currentStep>0){currentStep--;updateStep();}};
+  next.onclick=()=>{if(currentStep<steps.length-1){currentStep++;updateStep();}else dialog.close();};
+  dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+  dialog.addEventListener('close',()=>{dialog.remove();if(startButton.isConnected)startButton.focus({preventScroll:true});});
+  updateStep();
+  document.body.append(dialog);
+  dialog.showModal();
+}
 function renderUserGuide(){
   const sections=userGuideContent[me?.rol]??[];
   if(!sections.length){const error=document.createElement('div');error.className='error-state';error.textContent='No hay una guía configurada para este tipo de cuenta.';$('#list').replaceChildren(error);return;}
-  const intro=document.createElement('section');intro.className='user-guide-intro';const heading=document.createElement('h4');heading.textContent=`Guía para ${roleName[me.rol]}`;const description=document.createElement('p');description.textContent='Esta guía corresponde a las opciones disponibles en tu cuenta. Despliega cada opción para ver cómo usarla y un ejemplo.';intro.append(heading,description);
+  const intro=document.createElement('section');intro.className='user-guide-intro';const heading=document.createElement('h4');heading.textContent=`Guía para ${roleName[me.rol]}`;const description=document.createElement('p');description.textContent='Elige una opción para abrir una guía interactiva. Podrás avanzar paso a paso y abrir la sección correspondiente sin cerrar la ayuda.';intro.append(heading,description);
   const guide=document.createElement('div');guide.className='user-guide-sections';
   for(const sectionData of sections){
     const section=document.createElement('section');section.className='user-guide-section';const title=document.createElement('h4');title.textContent=sectionData.title;const topics=document.createElement('div');topics.className='user-guide-topics';
@@ -338,7 +411,8 @@ function renderUserGuide(){
       const topic=document.createElement('details');topic.className='user-guide-topic';const summary=document.createElement('summary');summary.textContent=item.title;
       const how=document.createElement('p');const howLabel=document.createElement('strong');howLabel.textContent='Cómo usarla: ';how.append(howLabel,document.createTextNode(item.how));
       const example=document.createElement('p');const exampleLabel=document.createElement('strong');exampleLabel.textContent='Ejemplo: ';example.append(exampleLabel,document.createTextNode(item.example));
-      topic.append(summary,how,example);topics.append(topic);
+      const start=document.createElement('button');start.type='button';start.className='user-guide-start';start.textContent='Iniciar guía paso a paso';start.onclick=()=>openUserGuideWalkthrough(item,start);
+      topic.append(summary,how,example,start);topics.append(topic);
     }
     section.append(title,topics);guide.append(section);
   }

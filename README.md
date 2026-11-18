@@ -42,7 +42,7 @@ Cada colección tiene forma `{ "schemaVersion": 1, "records": [...] }` e IDs ún
 
 ## Portales y uso
 
-Al final del menú lateral de cada rol está **Guía de usuario**, con instrucciones y ejemplos de las opciones disponibles para esa cuenta.
+Al final del menú lateral de cada rol está **Guía de usuario**. Cada opción abre un recorrido interactivo con pasos y un ejemplo; **Ir a la sección** lleva al módulo y mantiene la ventana de ayuda abierta para poder seguir las instrucciones mientras se usa.
 
 ### Instalar en el teléfono
 
