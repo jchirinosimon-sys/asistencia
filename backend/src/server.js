@@ -1,7 +1,7 @@
 import http from 'node:http';
 import path from 'node:path';
 import { readFile, stat, readdir } from 'node:fs/promises';
-import { randomUUID, randomInt, createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { randomUUID, randomInt, randomBytes, createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { COLLECTIONS } from './storage/json-storage.js';
 import { createStorage } from './storage/create-storage.js';
@@ -27,6 +27,10 @@ const todayAt = (zone='America/Guatemala') => new Intl.DateTimeFormat('en-CA',{t
 const fail = (status,message) => Object.assign(new Error(message),{status});
 const safeEqual = (a,b) => { const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y); };
 const hashQrToken = token => token.length===5 ? createHmac('sha256',secret).update(token).digest('hex') : createHash('sha256').update(token).digest('hex');
+const normalizeActivationCode=value=>String(value??'').replace(/[^a-f0-9]/gi,'').toUpperCase();
+const hashActivationCode=code=>createHmac('sha256',secret).update(code).digest('hex');
+const createActivationCode=()=>randomBytes(8).toString('hex').toUpperCase();
+const formatActivationCode=code=>code.match(/.{4}/g)?.join('-')??code;
 const normalizeAreaName=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');
 const studentImportFields=['nombres','apellidos','especialidad','grado','grupo','matricula','semestre','ciclo'];
 const studentCsvHeaders=['Nombres','Apellidos','Especialidad','Grado','Grupo','Matrícula','Semestre','Ciclo'];
@@ -288,11 +292,41 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/auth/especialidades') return json(res,200,(await storage.read('especialidades')).filter(x=>x.activo!==false).map(({id,nombre})=>({id,nombre})));
     if (req.method === 'POST' && url.pathname === '/api/auth/solicitudes') {
       const ip=req.socket.remoteAddress??'local',now=Date.now(),attempts=signupFailures.get(ip);if(attempts&&attempts.until>now&&attempts.count>=5)return json(res,429,{error:'Se alcanzó el límite de solicitudes. Intenta de nuevo más tarde.'});if(!attempts||attempts.until<=now)signupFailures.set(ip,{count:0,until:now+15*60_000});
-      const input=await body(req),nombre=typeof input.nombre==='string'?input.nombre.trim():'',email=typeof input.email==='string'?input.email.trim().toLowerCase():'',password=input.password,rolSolicitado=input.rol,matricula=typeof input.matricula==='string'?input.matricula.trim():'';
+      const input=await body(req),nombre=typeof input.nombre==='string'?input.nombre.trim():'',email=typeof input.email==='string'?input.email.trim().toLowerCase():'',password=input.password,rolSolicitado=input.rol,matricula=typeof input.matricula==='string'?input.matricula.trim():'',activationCode=typeof input.codigoActivacion==='string'?normalizeActivationCode(input.codigoActivacion):'';
       if(nombre.length<2||nombre.length>120||!/^\S+@\S+\.\S+$/.test(email)||email.length>254||typeof password!=='string'||password.length<12||password.length>200||!['alumno','maestro','tutor'].includes(rolSolicitado)||(rolSolicitado==='alumno'&&(!matricula||matricula.length>40||typeof input.especialidad!=='string'||!input.especialidad.trim())))return json(res,400,{error:'Completa nombre, correo, tipo de cuenta, matrícula y especialidad si eres alumno, y una contraseña de 12 caracteres o más.'});
       let especialidad=null;if(rolSolicitado==='alumno'){especialidad=(await storage.read('especialidades')).find(x=>x.activo!==false&&normalizeAreaName(x.nombre)===normalizeAreaName(input.especialidad));if(!especialidad)return json(res,400,{error:'La especialidad no coincide con un área activa. Revisa el nombre registrado con la institución.'});}
       const attemptState=signupFailures.get(ip);signupFailures.set(ip,{...attemptState,count:attemptState.count+1});
       const request={id:randomUUID(),nombre,email,rolSolicitado,...(rolSolicitado==='alumno'?{matricula,especialidadId:especialidad.id,especialidadNombre:especialidad.nombre}:{}),passwordHash:await hashPassword(password),estado:'pendiente',creadoEn:new Date().toISOString()};
+      if(rolSolicitado==='alumno'&&input.codigoActivacion){
+        if(activationCode.length!==16)return json(res,400,{error:'El código o los datos no coinciden con un expediente activo. Contacta a Dirección.'});
+        let approvedUser=null,resolvedRequest=null;
+        await storage.backup(backupDir);
+        await storage.transact(async read=>{
+          const [accounts,requests,codes,students,areas,groups,enrollments]=await Promise.all([read('usuarios'),read('solicitudes_cuenta'),read('codigos_activacion'),read('alumnos'),read('especialidades'),read('grupos'),read('inscripciones')]);
+          if(accounts.some(item=>item.email===email)||requests.some(item=>item.email===email&&item.estado==='pendiente'))throw fail(409,'Ya existe una cuenta o solicitud pendiente con ese correo.');
+          const codeHash=hashActivationCode(activationCode),codeRecord=codes.find(item=>typeof item.codeHash==='string'&&safeEqual(item.codeHash,codeHash)&&!item.usadoEn&&Date.parse(item.expiraEn)>Date.now());
+          if(!codeRecord)throw fail(400,'El código o los datos no coinciden con un expediente activo. Contacta a Dirección.');
+          const student=students.find(item=>item.id===codeRecord.alumnoId&&item.activo!==false);
+          const fullName=student?[student.nombres,student.apellidos].filter(Boolean).join(' '):'';
+          const groupId=student?.grupoId??enrollments.find(item=>item.alumnoId===student?.id&&item.estado==='activa')?.grupoId;
+          const group=groups.find(item=>item.id===groupId),assignedAreaId=student?.especialidadId??group?.especialidadId;
+          const storedAreaName=student?.especialidadNombre??student?.especialidad??'';
+          const studentArea=assignedAreaId?areas.find(item=>item.id===assignedAreaId&&item.activo!==false):areas.find(item=>item.activo!==false&&normalizeAreaName(item.nombre)===normalizeAreaName(storedAreaName));
+          if(!student||normalizeAreaName(fullName)!==normalizeAreaName(nombre)||normalizeAreaName(student.matricula)!==normalizeAreaName(matricula)||studentArea?.id!==especialidad.id||(storedAreaName&&normalizeAreaName(storedAreaName)!==normalizeAreaName(especialidad.nombre)))throw fail(400,'El código o los datos no coinciden con un expediente activo. Contacta a Dirección.');
+          if(accounts.some(item=>item.rol==='alumno'&&item.personaId===student.id&&item.activo))throw fail(409,'Ese expediente ya tiene una cuenta activa. Contacta a Dirección.');
+          const now=new Date().toISOString();
+          approvedUser={id:randomUUID(),email,nombre:fullName,rol:'alumno',personaId:student.id,especialidadId:especialidad.id,activo:true,passwordHash:request.passwordHash,creadoEn:now,aprobadoAutomaticamente:true};
+          const {passwordHash:_passwordHash,...requestInfo}=request;
+          resolvedRequest={...requestInfo,estado:'aprobada',personaId:student.id,usuarioId:approvedUser.id,resolucion:'codigo_activacion',resueltaEn:now};
+          return[
+            {collection:'usuarios',upsert:[approvedUser]},
+            {collection:'solicitudes_cuenta',upsert:[resolvedRequest]},
+            {collection:'codigos_activacion',upsert:[{...codeRecord,usadoEn:now,usadoPorUsuarioId:approvedUser.id}]},
+            {collection:'auditoria',upsert:[{id:randomUUID(),usuarioId:null,accion:'solicitud_cuenta_aprobada_automatica',entidad:approvedUser.id,email,creadoEn:now}]}
+          ];
+        });
+        return json(res,201,{mensaje:'Cuenta aprobada. Ya puedes iniciar sesión.'});
+      }
       await storage.update('solicitudes_cuenta',async rows=>{const accounts=await storage.read('usuarios');if(accounts.some(x=>x.email===email)||rows.some(x=>x.email===email&&x.estado==='pendiente'))throw fail(409,'Ya existe una cuenta o solicitud pendiente con ese correo.');return[...rows,request];});
       return json(res,202,{mensaje:rolSolicitado==='alumno'?'Solicitud recibida. Dirección debe aprobarla; la matrícula se usará para encontrar tu expediente.':'Solicitud recibida. Dirección debe aprobar y vincular tu expediente antes de que puedas iniciar sesión.'});
     }
@@ -341,6 +375,8 @@ const server = http.createServer(async (req, res) => {
         if(bytes.length>5_000_000||bytes.length<1||bytes.toString('base64').replace(/=+$/,'')!==input.contenido.replace(/=+$/,''))return json(res,400,{error:'El archivo está incompleto o no es válido.'});
         if(isWorkbook&&bytes.subarray(0,2).toString('hex')!=='504b')return json(res,400,{error:'El archivo Excel está incompleto o no es válido.'});
         const parsedRows=isCsv?parseStudentCsv(bytes):await parseStudentWorkbook(bytes);
+        const generateActivationCode=input.generarCodigoActivacion===true;
+        if(generateActivationCode&&parsedRows.length!==1)return json(res,400,{error:'La generación de un código de activación solo se permite para un alta individual.'});
         const duplicates=[],seen=new Set(),candidates=[],currentStudents=await storage.read('alumnos'),registered=new Set(currentStudents.map(row=>normalizeAreaName(row.matricula)));
         for(const row of parsedRows){
           const key=normalizeAreaName(row.matricula);
@@ -353,13 +389,13 @@ const server = http.createServer(async (req, res) => {
         if(parsed.errors.length)return json(res,400,{error:'Hay filas que requieren corrección. No se guardó ningún alumno.',detalles:parsed.errors.slice(0,100)});
         const newRows=parsed.rows;
         if(newRows.length)await storage.backup(backupDir);
-        let imported=[],concurrentDuplicates=[];
+        let imported=[],concurrentDuplicates=[],activationCodes=[];
         if(newRows.length)await storage.transact(async read=>{
           const [students,areas,groups]=await Promise.all([read('alumnos'),read('especialidades'),read('grupos')]);
-          const currentKeys=new Set(students.map(row=>normalizeAreaName(row.matricula))),areaUpserts=[],groupUpserts=[],enrollmentUpserts=[];
+          const currentKeys=new Set(students.map(row=>normalizeAreaName(row.matricula))),areaUpserts=[],groupUpserts=[],enrollmentUpserts=[],activationUpserts=[];
           const areaByName=new Map(areas.map(area=>[normalizeAreaName(area.nombre),area]));
           const groupByKey=new Map(groups.map(group=>[`${group.especialidadId}|${normalizeAreaName(group.grado)}|${normalizeAreaName(group.nombre)}|${Number(group.semestre??0)}|${normalizeAreaName(group.ciclo)}`,group]));
-          imported=[];concurrentDuplicates=[];
+          imported=[];concurrentDuplicates=[];activationCodes=[];
           for(const row of newRows){
             const matriculaKey=normalizeAreaName(row.matricula);
             if(currentKeys.has(matriculaKey)){concurrentDuplicates.push({fila:row.rowNumber,matricula:row.matricula,motivo:'La matrícula ya está registrada.'});continue;}
@@ -373,13 +409,30 @@ const server = http.createServer(async (req, res) => {
             else if(group.activo===false){group={...group,activo:true,actualizadoEn:new Date().toISOString()};groupByKey.set(key,group);groupUpserts.push(group);}
             const now=new Date().toISOString(),student={id:randomUUID(),nombres:row.nombres,apellidos:row.apellidos,matricula:row.matricula,especialidadId:area.id,especialidadNombre:area.nombre,grado:row.grado,grupoId:group.id,grupoNombre:group.nombre,semestre:row.semestre,ciclo:row.ciclo,activo:true,creadoEn:now,actualizadoEn:now};
             imported.push(student);enrollmentUpserts.push({id:randomUUID(),alumnoId:student.id,grupoId:group.id,ciclo:row.ciclo,estado:'activa',creadoEn:now,actualizadoEn:now});
+            if(generateActivationCode){const code=createActivationCode(),expiraEn=new Date(Date.now()+30*24*60*60_000).toISOString();activationUpserts.push({id:student.id,alumnoId:student.id,codeHash:hashActivationCode(code),creadoEn:now,expiraEn});activationCodes.push({alumnoId:student.id,codigo:formatActivationCode(code),expiraEn});}
           }
-          const patches=[{collection:'alumnos',upsert:imported},{collection:'especialidades',upsert:areaUpserts},{collection:'grupos',upsert:groupUpserts},{collection:'inscripciones',upsert:enrollmentUpserts}].filter(patch=>patch.upsert.length);
+          const patches=[{collection:'alumnos',upsert:imported},{collection:'especialidades',upsert:areaUpserts},{collection:'grupos',upsert:groupUpserts},{collection:'inscripciones',upsert:enrollmentUpserts},{collection:'codigos_activacion',upsert:activationUpserts}].filter(patch=>patch.upsert.length);
           return patches;
         });
         duplicates.push(...concurrentDuplicates);
         await audit(user,'importar_alumnos',`${imported.length} importados; ${duplicates.length} omitidos`);
-        return json(res,200,{importados:imported.length,omitidos:duplicates.length,duplicados:duplicates.slice(0,100)});
+        return json(res,200,{importados:imported.length,omitidos:duplicates.length,duplicados:duplicates.slice(0,100),...(activationCodes.length?{codigosActivacion:activationCodes}:{})});
+      }
+      const activationCodeMatch=url.pathname.match(/^\/api\/alumnos\/([^/]+)\/codigo-activacion$/);
+      if(req.method==='POST'&&activationCodeMatch){
+        if(user.rol!=='direccion')return json(res,403,{error:'Solo Dirección puede generar códigos de activación.'});
+        const studentId=activationCodeMatch[1],code=createActivationCode(),now=new Date().toISOString();
+        const codeRecord={id:studentId,alumnoId:studentId,codeHash:hashActivationCode(code),creadoEn:now,expiraEn:new Date(Date.now()+30*24*60*60_000).toISOString()};
+        const auditRecord={id:randomUUID(),usuarioId:user.id,accion:'generar_codigo_activacion_alumno',entidad:studentId,creadoEn:now};
+        await storage.backup(backupDir);
+        await storage.transact(async read=>{
+          const [students,accounts]=await Promise.all([read('alumnos'),read('usuarios')]);
+          const student=students.find(item=>item.id===studentId&&item.activo!==false);
+          if(!student)throw fail(404,'No se encontró un alumno activo.');
+          if(accounts.some(item=>item.rol==='alumno'&&item.personaId===studentId&&item.activo))throw fail(409,'Ese alumno ya tiene una cuenta activa.');
+          return[{collection:'codigos_activacion',upsert:[codeRecord]},{collection:'auditoria',upsert:[auditRecord]}];
+        });
+        return json(res,201,{codigo:formatActivationCode(code),expiraEn:codeRecord.expiraEn});
       }
       if(req.method==='GET'&&url.pathname==='/api/personas-disponibles'){
         if(user.rol!=='direccion')return json(res,403,{error:'Solo dirección puede consultar expedientes disponibles.'});
@@ -444,6 +497,7 @@ const server = http.createServer(async (req, res) => {
           approvedUser={id:randomUUID(),email:request.email,nombre:request.nombre,rol:request.rolSolicitado,personaId,activo:true,...(request.rolSolicitado==='alumno'?{especialidadId:request.especialidadId}:{}),passwordHash,creadoEn:new Date().toISOString(),aprobadoPor:user.id};
           resolvedRequest={...requestInfo,estado:'aprobada',usuarioId:approvedUser.id,resueltaPor:user.id,resueltaEn:new Date().toISOString()};
           const patches=[{collection:'usuarios',upsert:[approvedUser]},{collection:'solicitudes_cuenta',upsert:[resolvedRequest]}];
+          if(request.rolSolicitado==='alumno'){const code=(await read('codigos_activacion')).find(item=>item.alumnoId===person.id&&!item.usadoEn);if(code)patches.push({collection:'codigos_activacion',upsert:[{...code,usadoEn:new Date().toISOString(),usadoPorUsuarioId:approvedUser.id}]});}
           return patches;
         });
         await audit(user,`solicitud_cuenta_${input.decision}`,accountRequestMatch[1]);
