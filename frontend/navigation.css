@@ -86,7 +86,7 @@
   transform: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .topbar-brand-group {
     gap: 9px;
     padding-left: 52px;

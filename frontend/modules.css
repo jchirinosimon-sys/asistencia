@@ -70,3 +70,50 @@ input,select,textarea{border-radius:10px}
 .user-guide-secondary{border-color:#d6e2d9;background:#fff;color:#355544}
 .user-guide-secondary:hover{background:#f1f6f2}
 @media(max-width:600px){.user-guide-dialog{width:calc(100vw - 20px);max-height:85vh}.user-guide-dialog-body{max-height:calc(85vh - 145px);padding:16px}.user-guide-dialog-header,.user-guide-dialog-footer{padding-right:16px;padding-left:16px}}
+
+/* Evita que controles y filas anchas empujen la página fuera del viewport. */
+html,body{max-width:100%;overflow-x:clip}
+.shell,.workspace,.main-column,.module-card,#dashboard-content,#list{min-width:0;max-width:100%}
+img,video,canvas,svg{max-width:100%}
+pre,code,button,table{max-width:100%;overflow-wrap:anywhere}
+.topbar,.topbar-actions,.brand,.welcome,.welcome-actions{min-width:0;max-width:100%}
+.topbar-actions{flex-wrap:wrap;justify-content:flex-end}
+.install-app{max-width:100%;white-space:normal}
+.data-row,.action-box,.dashboard-section,.organization-area,.permit-card,.record-picker-panel{min-width:0;overflow-wrap:anywhere}
+.section-heading{min-width:0;flex-wrap:wrap}
+.section-heading>*,.list-tools{min-width:0;max-width:100%}
+.list-tools{flex-wrap:wrap}
+.search-box{width:min(190px,100%);min-width:0;flex:1 1 150px}
+.record-filter{min-width:0;max-width:100%;flex:1 1 130px}
+.data-row{min-width:0;grid-template-columns:minmax(0,1fr) max-content;}
+.data-row>*{min-width:0;max-width:100%}
+.data-row .row-action{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.inline-form{min-width:0;max-width:100%}
+.inline-form>*{max-width:100%}
+.attendance-person{flex-wrap:wrap}
+.attendance-person select{width:min(100%,175px);max-width:100%}
+.user-name-row{min-width:0;flex-wrap:wrap}
+.organization-area-heading{flex-wrap:wrap}
+.schedule-sheet,.schedule-toolbar,.schedule-management{min-width:0;max-width:100%}
+
+@media(max-width:900px){
+  .shell{padding-right:22px;padding-left:22px}
+  .workspace{grid-template-columns:minmax(0,1fr);gap:14px}
+}
+@media(max-width:600px){
+  .topbar{gap:8px}
+  .topbar-brand-group{min-width:0;max-width:100%}
+  .brand{min-width:0}
+  .brand>div{min-width:0}
+  .brand h1{font-size:14px}
+  .topbar-actions{max-width:48%;gap:5px}
+  .shell{padding-right:14px;padding-left:14px}
+  .module-card,#account-admin,#record-admin{padding:15px}
+  .section-heading{align-items:flex-start}
+  .list-tools{width:100%}
+  .inline-form input,.inline-form select{min-width:0;flex:1 1 140px}
+  .inline-form textarea{min-width:0;flex:1 1 100%}
+  .data-row{grid-template-columns:minmax(0,1fr) max-content;gap:8px}
+  .planning-journey-actions{flex-wrap:wrap;justify-content:flex-end}
+  .credential-identity{flex-wrap:wrap}
+}
