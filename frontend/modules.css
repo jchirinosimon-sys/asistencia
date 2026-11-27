@@ -16,6 +16,38 @@
 .activation-code-status{display:block;width:100%;margin:4px 0;color:#526b5c;font-size:11px;line-height:1.55}
 .student-quick-form>button{justify-self:start}
 .user-guide-topic .user-guide-start{margin:0 12px 12px}
+.planning-intro{position:relative;overflow:hidden;margin:0 0 14px;padding:24px 26px;border:1px solid #eadbd3;border-radius:20px;background:radial-gradient(circle at 93% 10%,#efd9c688,transparent 29%),linear-gradient(125deg,#fff 0%,#fbf4ee 100%);box-shadow:0 12px 30px #582a1910}
+.planning-intro:after{position:absolute;right:5%;bottom:-75px;width:190px;height:190px;border:24px solid #9d1c2110;border-radius:50%;content:"";pointer-events:none}
+.planning-kicker{display:block;color:#9c6a43;font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+.planning-intro h3{position:relative;z-index:1;margin:8px 0;color:#44191a;font-size:clamp(20px,3vw,27px);letter-spacing:-.035em}
+.planning-intro p{position:relative;z-index:1;max-width:720px;margin:0;color:#74645d;font-size:13px;line-height:1.65}
+.planning-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.planning-step{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid #eee5dd;border-radius:14px;background:#fff;box-shadow:0 4px 14px #32190d08}
+.planning-step>span{display:grid;flex:0 0 36px;width:36px;height:36px;place-items:center;border-radius:12px;background:#f7e9df;color:#951e23;font-size:11px;font-weight:850}
+.planning-step div{display:grid;gap:3px}.planning-step strong{color:#382c28;font-size:12px}.planning-step small{color:#84766f;font-size:10px}
+.planning-form-card{padding:18px;border-color:#e8ddd5;background:linear-gradient(150deg,#fff,#fcfaf8)}
+.planning-form{grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.planning-form label{display:grid;gap:7px;color:#5d4a42;font-size:11px;font-weight:700}
+.planning-form input,.planning-form select{min-height:43px;border-color:#e6ddd6;border-radius:11px;background:#fff}
+.planning-form .planning-submit{min-height:44px;padding:11px 18px;border-radius:11px;background:linear-gradient(120deg,#8f1c21,#b33d38);box-shadow:0 6px 15px #8f1c2125}
+.planning-form .planning-submit:hover{background:#74171b;box-shadow:0 8px 18px #8f1c2130}
+.planning-status{grid-column:1/-1;min-height:20px;padding:9px 11px;border-radius:9px;background:#f7f5f2}
+.planning-section-heading{display:flex;justify-content:space-between;margin:24px 0 10px}.planning-section-heading h3{margin:4px 0;color:#392824;font-size:17px}.planning-section-heading p{margin:0;color:#82736d;font-size:11px}
+.planning-journeys{display:grid;gap:8px}.planning-journey-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 15px;border:1px solid #eee9e4;border-radius:12px;background:#fff}
+.planning-journey-row>div{display:grid;gap:4px}.planning-journey-row strong{color:#352c28;font-size:12px}.planning-journey-row>div span{color:#81766e;font-size:11px}.planning-journey-actions{display:flex;align-items:center;gap:8px}
+.planning-badge{padding:6px 10px;border-radius:999px;font-size:10px;font-weight:750}.planning-badge.is-open{background:#e7f2e9;color:#397450}.planning-badge.is-closed{background:#f0efed;color:#77716b}
+.planning-empty{padding:18px;border:1px dashed #e1d9d2;border-radius:12px;color:#847970;text-align:center;font-size:12px}
+.planning-qr{margin-top:14px;padding:18px;border-color:#e4d8ce;background:linear-gradient(140deg,#fff,#faf6f0)}
+.student-quick-registration{padding:20px;border-color:#e8ddd5;background:linear-gradient(145deg,#fff 0%,#fbf7f2 100%);box-shadow:0 10px 28px #341a0e0c}
+.student-quick-registration>.action-copy strong{font-size:16px;color:#4a2020}.student-quick-registration>.action-copy span{font-size:12px;line-height:1.55}
+.student-quick-form{gap:15px;padding-top:5px}.student-quick-form label{display:grid;gap:7px;color:#57483f;font-size:11px;font-weight:700}.student-quick-form input,.student-quick-form select{min-height:42px;border-color:#e7ded7;border-radius:10px;background:#fff}
+.student-quick-form>button{min-height:43px;padding:11px 17px;border-radius:10px;background:#861d22}
+.card,.module-card{border-color:#eee5de;border-radius:18px;box-shadow:0 10px 30px #26150d09}
+button{transition:transform .16s ease,box-shadow .16s ease,background-color .16s ease,border-color .16s ease}
+button:hover:not(:disabled){transform:translateY(-1px)}
+input,select,textarea{border-radius:10px}
+.welcome{padding:3px 2px}
+.welcome h2{letter-spacing:-.035em}
+@media(max-width:620px){.planning-intro{padding:19px}.planning-steps{grid-template-columns:1fr}.planning-step{padding:10px}.planning-form{grid-template-columns:1fr}.planning-form .planning-status{grid-column:auto}.planning-journey-row{align-items:flex-start}.student-quick-registration{padding:15px}}
 .user-guide-start,.user-guide-secondary{min-height:40px;padding:9px 14px;border:1px solid #2e5e49;border-radius:9px;background:#2e5e49;color:#fff;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
 .user-guide-start:hover{background:#244a39}
 .user-guide-start:focus-visible,.user-guide-secondary:focus-visible,.user-guide-close:focus-visible{outline:2px solid #4f9b72;outline-offset:2px}
