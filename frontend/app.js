@@ -354,6 +354,7 @@ function openUserGuideWalkthrough(item,startButton) {
   const progressFill=document.createElement('span');progressFill.className='user-guide-progress-fill';progressTrack.append(progressFill);progress.append(progressLabel,progressTrack);
   const stepTitle=document.createElement('h3');stepTitle.className='user-guide-step-title';
   const stepText=document.createElement('p');stepText.className='user-guide-step-text';
+  const visual=document.createElement('div');visual.className='user-guide-visual';visual.setAttribute('aria-live','polite');
   const sectionAction=document.createElement('div');sectionAction.className='user-guide-section-action';
   const goToSection=document.createElement('button');goToSection.type='button';goToSection.className='user-guide-start';goToSection.textContent='Ir a la sección';
   const sectionStatus=document.createElement('p');sectionStatus.className='user-guide-section-status';sectionStatus.setAttribute('role','status');
@@ -375,7 +376,7 @@ function openUserGuideWalkthrough(item,startButton) {
     }
   };
   sectionAction.append(goToSection,sectionStatus);
-  body.append(progress,stepTitle,stepText,sectionAction);
+  body.append(progress,stepTitle,stepText,visual,sectionAction);
   const footer=document.createElement('footer');footer.className='user-guide-dialog-footer';
   const previous=document.createElement('button');previous.type='button';previous.className='user-guide-secondary';previous.textContent='Anterior';
   const next=document.createElement('button');next.type='button';next.className='user-guide-start';
@@ -389,6 +390,7 @@ function openUserGuideWalkthrough(item,startButton) {
     progressFill.style.width=`${((currentStep+1)/steps.length)*100}%`;
     stepTitle.textContent=step.title;
     stepText.textContent=step.text;
+    renderGuidePreview(visual,item,currentStep);
     previous.disabled=currentStep===0;
     next.textContent=currentStep===steps.length-1?'Terminar guía':'Siguiente';
   };
@@ -398,12 +400,32 @@ function openUserGuideWalkthrough(item,startButton) {
   dialog.addEventListener('close',()=>{dialog.remove();if(startButton.isConnected)startButton.focus({preventScroll:true});});
   updateStep();
   document.body.append(dialog);
-  dialog.showModal();
+  // Mantiene el recorrido visible mientras la persona puede usar el módulo real detrás.
+  dialog.show();
+}
+function renderGuidePreview(container,item,stepIndex){
+  const captions=[`Ubica “${item.title}” en el menú`,`Revisa el contenido de “${item.title}”`,`Aplica el ejemplo y comprueba el resultado`];
+  const windowFrame=document.createElement('figure');windowFrame.className='user-guide-preview';
+  const chrome=document.createElement('div');chrome.className='user-guide-preview-chrome';
+  const dots=document.createElement('span');dots.className='user-guide-preview-dots';dots.textContent='● ● ●';
+  const address=document.createElement('span');address.textContent=`Genix-asis · ${item.title}`;chrome.append(dots,address);
+  const layout=document.createElement('div');layout.className='user-guide-preview-layout';
+  const menu=document.createElement('aside');menu.className='user-guide-preview-menu';
+  for(const label of ['Resumen',item.title,'Mi perfil']){const entry=document.createElement('span');entry.textContent=label;if(label===item.title&&stepIndex===0)entry.classList.add('is-focused');menu.append(entry)}
+  const screen=document.createElement('div');screen.className='user-guide-preview-screen';
+  const title=document.createElement('strong');title.textContent=item.title;screen.append(title);
+  if(stepIndex===0){const line=document.createElement('p');line.textContent='Selecciona la opción correspondiente en el menú.';screen.append(line);}
+  else if(stepIndex===1){const form=document.createElement('div');form.className='user-guide-preview-fields';for(const label of ['Información','Opciones','Estado']){const field=document.createElement('span');field.textContent=label;form.append(field)}screen.append(form);const line=document.createElement('p');line.textContent='Sigue las indicaciones de esta sección.';screen.append(line);}
+  else{const result=document.createElement('div');result.className='user-guide-preview-result';const resultTitle=document.createElement('b');resultTitle.textContent='Ejemplo práctico';const resultText=document.createElement('span');resultText.textContent=item.example;result.append(resultTitle,resultText);screen.append(result);}
+  layout.append(menu,screen);
+  const callout=document.createElement('div');callout.className='user-guide-preview-callout';const arrow=document.createElement('span');arrow.setAttribute('aria-hidden','true');arrow.textContent='↖';const caption=document.createElement('span');caption.textContent=captions[stepIndex];callout.append(arrow,caption);
+  const note=document.createElement('figcaption');note.textContent='Vista ilustrativa: la pantalla real conserva las opciones y datos de tu cuenta.';
+  windowFrame.append(chrome,layout,callout,note);container.replaceChildren(windowFrame);
 }
 function renderUserGuide(){
   const sections=userGuideContent[me?.rol]??[];
   if(!sections.length){const error=document.createElement('div');error.className='error-state';error.textContent='No hay una guía configurada para este tipo de cuenta.';$('#list').replaceChildren(error);return;}
-  const intro=document.createElement('section');intro.className='user-guide-intro';const heading=document.createElement('h4');heading.textContent=`Guía para ${roleName[me.rol]}`;const description=document.createElement('p');description.textContent='Elige una opción para abrir una guía interactiva. Podrás avanzar paso a paso y abrir la sección correspondiente sin cerrar la ayuda.';intro.append(heading,description);
+  const intro=document.createElement('section');intro.className='user-guide-intro';const heading=document.createElement('h4');heading.textContent=`Guía para ${roleName[me.rol]}`;const description=document.createElement('p');description.textContent='Elige una opción para abrir un recorrido paso a paso. Cada paso incluye un esquema visual con llamadas y flechas que señalan qué revisar, y puedes abrir el módulo correspondiente desde la guía.';intro.append(heading,description);
   const guide=document.createElement('div');guide.className='user-guide-sections';
   for(const sectionData of sections){
     const section=document.createElement('section');section.className='user-guide-section';const title=document.createElement('h4');title.textContent=sectionData.title;const topics=document.createElement('div');topics.className='user-guide-topics';
