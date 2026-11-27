@@ -137,3 +137,6 @@ pre,code,button,table{max-width:100%;overflow-wrap:anywhere}
   .planning-journey-actions{flex-wrap:wrap;justify-content:flex-end}
   .credential-identity{flex-wrap:wrap}
 }
+
+.attendance-choices{display:flex;flex-wrap:wrap;gap:6px}.attendance-choice{min-height:36px;padding:7px 12px}.attendance-choice.is-selected{background:#176b45;color:#fff;border-color:#176b45}.attendance-person>strong{min-width:min(100%,180px)}
+@media(max-width:560px){.attendance-person{align-items:stretch}.attendance-choices{width:100%}.attendance-choice{flex:1 1 90px}}
