@@ -315,16 +315,32 @@ async function notifyTutorsOfStudentEvent(studentId,event){
     const tutorIds=new Set(links.filter(link=>link.alumnoId===studentId&&link.activa===true).map(link=>link.tutorId));if(!tutorIds.size)return;
     const tutors=accounts.filter(account=>account.activo&&account.rol==='tutor'&&tutorIds.has(account.personaId));if(!tutors.length)return;
     const name=[student.nombres,student.apellidos].filter(Boolean).join(' ')||student.nombre||'El alumno';const when=new Date(event.at??Date.now()).toLocaleString('es-GT',{timeZone:'America/Guatemala',dateStyle:'short',timeStyle:'short'});
-    const title=event.tipo==='llegada'?'Llegada a la escuela':'Falta registrada';const materia=subjects.find(item=>item.id===event.materiaNombre)?.nombre??event.materiaNombre??'una clase';
-    const content=event.tipo==='llegada'?name+' registró su entrada a la escuela el '+when+'.':name+' tiene una falta registrada en '+materia+' el '+when+'.';
+    const title=event.tipo==='llegada'?'Llegada a la escuela':event.tipo==='salida'?'Salida de la escuela':'Falta registrada';const materia=subjects.find(item=>item.id===event.materiaNombre)?.nombre??event.materiaNombre??'una clase';
+    const content=event.tipo==='llegada'?name+' registró su entrada a la escuela el '+when+'.':event.tipo==='salida'?name+' registró su salida de la escuela el '+when+'.':name+' tiene una falta registrada en '+materia+' el '+when+'.';
     let created=[];
     await storage.update('mensajes',rows=>{created=tutors.filter(account=>!rows.some(row=>row.destinatarioUsuarioId===account.id&&row.eventoOrigenId===event.id)).map(account=>({id:randomUUID(),destinatarioUsuarioId:account.id,destinatarioNombre:account.nombre,tutorId:account.personaId,alumnoId:student.id,tipoEvento:event.tipo,eventoOrigenId:event.id,alcance:'evento_escolar',asunto:title,contenido:content,creadoEn:new Date().toISOString(),leidoEn:null}));return created.length?[...rows,...created]:rows;});
     await Promise.all(created.map(async message=>{try{await sendPushNotifications(storage,[message.destinatarioUsuarioId],{id:message.id,asunto:title,detalle:content,tipo:event.tipo},env)}catch(error){console.error('No se pudo enviar el aviso al tutor:',error.message)}}));
   }catch(error){console.error('No se pudo guardar el aviso del tutor:',error.message)}
 }
+async function notifyGuardiansOfMissingArrival(date,zone){
+  const calendar=(await storage.read('calendario_escolar')).find(item=>item.fecha===date&&item.activo!==false);
+  if(!calendar||!['lectivo','clases','jornada_especial'].includes(String(calendar.tipo).toLowerCase()))return 0;
+  const weekday=new Date(date+'T12:00:00Z').getUTCDay(),now=timeAt(new Date(),zone),toMinutes=value=>Number(String(value??'00:00').slice(0,2))*60+Number(String(value??'00:00').slice(3,5));
+  const [schedules,enrollments,students,groups,links,accounts,attendance,notifications]=await Promise.all(['horarios','inscripciones','alumnos','grupos','relaciones_tutores','usuarios','asistencias','notificaciones'].map(name=>storage.read(name)));
+  const groupIds=new Set(groups.filter(item=>item.activo!==false).map(item=>item.id)),studentById=new Map(students.filter(item=>item.activo!==false).map(item=>[item.id,item])),firstStart=new Map();
+  for(const item of schedules.filter(item=>item.activo!==false&&Number(item.diaSemana)===weekday&&(!item.desde||item.desde<=date)&&(!item.hasta||item.hasta>=date)&&groupIds.has(item.grupoId)).sort((a,b)=>String(a.horaInicio).localeCompare(String(b.horaInicio))))if(!firstStart.has(item.grupoId))firstStart.set(item.grupoId,item.horaInicio);
+  const tutorAccounts=new Map(accounts.filter(item=>item.activo&&item.rol==='tutor').map(item=>[item.personaId,item])),keys=new Set(notifications.map(item=>item.claveIdempotencia)),newNotices=[],newMessages=[];
+  for(const enrollment of enrollments.filter(item=>item.estado==='activa'&&firstStart.has(item.grupoId))){
+    const student=studentById.get(enrollment.alumnoId),start=firstStart.get(enrollment.grupoId);if(!student||toMinutes(now)<toMinutes(start)+60||attendance.some(item=>item.alumnoId===student.id&&item.fecha===date&&(item.tipo==='entrada'||!item.tipo)))continue;
+    for(const link of links.filter(item=>item.alumnoId===student.id&&item.activa===true)){const tutor=tutorAccounts.get(link.tutorId);if(!tutor)continue;const key='sin_entrada:'+date+':'+link.tutorId+':'+student.id;if(keys.has(key))continue;const notice={id:randomUUID(),claveIdempotencia:key,tutorId:link.tutorId,alumnoId:student.id,estado:'generada',creadaEn:new Date().toISOString()};newNotices.push(notice);newMessages.push({id:randomUUID(),notificacionId:notice.id,destinatarioUsuarioId:tutor.id,tutorId:link.tutorId,alumnoId:student.id,asunto:'Aviso de asistencia pendiente',contenido:'A las '+start+' inició la primera clase de '+[student.nombres,student.apellidos].filter(Boolean).join(' ')+'. Una hora después todavía no aparece un registro de entrada.',creadoEn:new Date().toISOString(),leidoEn:null});keys.add(key);}
+  }
+  if(newNotices.length){await storage.transact([{collection:'notificaciones',upsert:newNotices},{collection:'mensajes',upsert:newMessages}]);await Promise.all(newMessages.map(message=>sendPushNotifications(storage,[message.destinatarioUsuarioId],{id:message.id,asunto:message.asunto,detalle:message.contenido,tipo:'sin_entrada'},env).catch(error=>console.error('No se pudo enviar alerta de entrada pendiente:',error.message))));}
+  return newNotices.length;
+}
 async function runScheduledJobs(){if(schedulerBusy)return;schedulerBusy=true;try{
   const settings=(await storage.read('configuracion'))[0]??{},zone=settings.zonaHoraria??'America/Guatemala',today=todayAt(zone),summaryAt=settings.horaResumenDiario??'17:00';
   await sendScheduleReminders(storage,{timeZone:zone,env});
+  await notifyGuardiansOfMissingArrival(today,zone);
   const prior=new Date(`${today}T12:00:00Z`);prior.setUTCDate(prior.getUTCDate()-1);await generateDailyMessages(prior.toISOString().slice(0,10));
   if(timeAt(new Date(),zone)>=summaryAt)await generateDailyMessages(today);
   if(timeAt(new Date(),zone)==='02:00'){
@@ -655,7 +671,7 @@ const server = http.createServer(async (req, res) => {
         const journey=journeys.find(item=>item.id===jornadaId);if(!journey)return json(res,404,{error:'Jornada no encontrada.'});
         const studentById=new Map(students.map(student=>[student.id,student]));
         const matching=attendance.filter(item=>item.jornadaId===journey.id).sort((a,b)=>(Date.parse(b.horaServidor)||0)-(Date.parse(a.horaServidor)||0));
-        const registros=matching.slice(0,20).map(item=>({id:item.id,alumnoId:item.alumnoId,nombreSnapshot:item.nombreSnapshot||'Alumno',matricula:studentById.get(item.alumnoId)?.matricula??'',horaServidor:item.horaServidor,metodo:item.metodo}));
+        const registros=matching.slice(0,20).map(item=>({id:item.id,alumnoId:item.alumnoId,nombreSnapshot:item.nombreSnapshot||'Alumno',matricula:studentById.get(item.alumnoId)?.matricula??'',horaServidor:item.horaServidor,metodo:item.metodo,tipo:item.tipo??'entrada'}));
         return json(res,200,{jornadaId:journey.id,fecha:journey.fecha,zonaHoraria:journey.zonaHoraria??'America/Guatemala',total:matching.length,registros});
       }
       if (match && req.method === 'GET') {
@@ -755,18 +771,18 @@ const server = http.createServer(async (req, res) => {
         return json(res,201,{mensaje:'Entrada registrada correctamente.',asistencia:attendance});
       }
       if(req.method==='POST'&&url.pathname==='/api/qr_diarios/renovar'&&user.rol==='direccion'){
-        const input=await body(req);const jornada=(await storage.read('jornadas')).find(x=>x.id===input.jornadaId&&x.estado==='habilitada');if(!jornada)return json(res,404,{error:'No existe una jornada habilitada para ese QR.'});
+        const input=await body(req),tipo=input.tipo==='salida'?'salida':'entrada';const jornada=(await storage.read('jornadas')).find(x=>x.id===input.jornadaId&&x.estado==='habilitada');if(!jornada)return json(res,404,{error:'No existe una jornada habilitada para ese QR.'});
         const versionId=randomUUID();let token,qr;
         await storage.transact(async read=>{
-          const all=await read('qr_diarios'),now=Date.now(),occupied=new Set(all.filter(x=>x.activa&&Date.parse(x.expiraEn)>now&&x.jornadaId!==jornada.id).map(x=>x.tokenHash));
+          const all=await read('qr_diarios'),now=Date.now(),occupied=new Set(all.filter(x=>x.activa&&Date.parse(x.expiraEn)>now&&(x.jornadaId!==jornada.id||(x.tipo??'entrada')!==tipo)).map(x=>x.tokenHash));
           for(let attempt=0;attempt<100;attempt++){const candidate=String(randomInt(0,100000)).padStart(5,'0');if(!occupied.has(hashQrToken(candidate))){token=candidate;break;}}
           if(!token)throw fail(503,'No se pudo generar un código libre. Inténtalo de nuevo.');
           const createdAt=new Date(now).toISOString(),expiresAt=now+10*60*1000;
-          qr={id:randomUUID(),jornadaId:jornada.id,versionId,tokenHash:hashQrToken(token),activa:true,creadaEn:createdAt,expiraEn:new Date(expiresAt).toISOString(),creadaPor:user.id};
-          const oldVersions=all.filter(x=>x.jornadaId===jornada.id&&x.activa).map(x=>({...x,activa:false,revocadaEn:createdAt}));
+          qr={id:randomUUID(),jornadaId:jornada.id,versionId,tipo,tokenHash:hashQrToken(token),activa:true,creadaEn:createdAt,expiraEn:new Date(expiresAt).toISOString(),creadaPor:user.id};
+          const oldVersions=all.filter(x=>x.jornadaId===jornada.id&&x.activa&&(x.tipo??'entrada')===tipo).map(x=>({...x,activa:false,revocadaEn:createdAt}));
           return[{collection:'qr_diarios',upsert:[...oldVersions,qr]}];
         });
-        await audit(user,'renovar_qr',jornada.id);return json(res,201,{jornadaId:jornada.id,versionId,token,expiraEn:qr.expiraEn});
+        await audit(user,'renovar_qr_'+tipo,jornada.id);return json(res,201,{jornadaId:jornada.id,versionId,tipo,token,expiraEn:qr.expiraEn});
       }
       if(req.method==='POST'&&url.pathname==='/api/asistencias/registrar'&&user.rol==='alumno'){
         const attemptKey=user.id,now=Date.now(),attempt=attendanceFailures.get(attemptKey);
@@ -778,10 +794,10 @@ const server = http.createServer(async (req, res) => {
         attendanceFailures.delete(attemptKey);
         const jornada=(await storage.read('jornadas')).find(x=>x.id===version.jornadaId&&x.estado==='habilitada');if(!jornada)return json(res,409,{error:'La jornada no está habilitada.'});
         if(jornada.fecha!==todayAt(jornada.zonaHoraria))return json(res,410,{error:'El código QR venció o corresponde a otra fecha.'});
-        const localTime=timeAt(new Date(),jornada.zonaHoraria);if(localTime<jornada.abreEn||localTime>jornada.cierraEn)return json(res,409,{error:`El código QR sí es válido, pero el registro está cerrado. La jornada permite entradas de ${jornada.abreEn} a ${jornada.cierraEn} (${jornada.zonaHoraria}); ahora son las ${localTime}. Dirección debe habilitar una jornada con el horario correcto.`});
+        const localTime=timeAt(new Date(),jornada.zonaHoraria);if(version.tipo!=='salida'&&(localTime<jornada.abreEn||localTime>jornada.cierraEn))return json(res,409,{error:`El código QR sí es válido, pero el registro está cerrado. La jornada permite entradas de ${jornada.abreEn} a ${jornada.cierraEn} (${jornada.zonaHoraria}); ahora son las ${localTime}. Dirección debe habilitar una jornada con el horario correcto.`});
         const student=(await storage.read('alumnos')).find(x=>x.id===user.personaId&&x.activo!==false);if(!student)return json(res,403,{error:'La cuenta no está vinculada con un alumno activo.'});
-        const attendance={id:randomUUID(),alumnoId:student.id,nombreSnapshot:[student.nombres,student.apellidos].filter(Boolean).join(' '),fecha:jornada.fecha,jornadaId:jornada.id,horaServidor:new Date().toISOString(),metodo:'qr',estado:'validada',versionQrId:version.versionId};
-        await storage.update('asistencias',rows=>{if(rows.some(x=>x.alumnoId===student.id&&x.jornadaId===jornada.id))throw fail(409,'Ya registraste tu entrada para esta jornada.');return [...rows,attendance];});await notifyTutorsOfStudentEvent(student.id,{id:attendance.id,tipo:'llegada',at:attendance.horaServidor});await audit(user,'registrar_entrada',attendance.id);return json(res,201,{mensaje:'Entrada registrada correctamente.',asistencia:attendance});
+        const tipo=version.tipo==='salida'?'salida':'entrada',attendance={id:randomUUID(),alumnoId:student.id,nombreSnapshot:[student.nombres,student.apellidos].filter(Boolean).join(' '),fecha:jornada.fecha,jornadaId:jornada.id,tipo,horaServidor:new Date().toISOString(),metodo:'qr',estado:'validada',versionQrId:version.versionId};
+        await storage.update('asistencias',rows=>{if(rows.some(x=>x.alumnoId===student.id&&x.jornadaId===jornada.id&&(x.tipo??'entrada')===tipo))throw fail(409,tipo==='salida'?'Ya registraste tu salida para esta jornada.':'Ya registraste tu entrada para esta jornada.');if(tipo==='salida'&&!rows.some(x=>x.alumnoId===student.id&&x.jornadaId===jornada.id&&(x.tipo??'entrada')==='entrada'))throw fail(409,'No aparece un registro de entrada para esta jornada.');return [...rows,attendance];});await notifyTutorsOfStudentEvent(student.id,{id:attendance.id,tipo:tipo==='salida'?'salida':'llegada',at:attendance.horaServidor});await audit(user,'registrar_'+tipo,attendance.id);return json(res,201,{mensaje:tipo==='salida'?'Salida registrada correctamente. Se avisó a tus tutores.':'Entrada registrada correctamente.',asistencia:attendance});
       }
       if(req.method==='POST'&&url.pathname==='/api/listas_asistencia'&&user.rol==='maestro'){
         const input=await body(req),schedule=(await storage.read('horarios')).find(x=>x.id===input.horarioId&&x.activo!==false&&x.maestroId===user.personaId);if(!schedule)return json(res,403,{error:'La clase no pertenece a tu horario.'});

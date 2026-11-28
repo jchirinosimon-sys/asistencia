@@ -310,7 +310,7 @@ async function submitPendingAttendance(user) {
   if(user.rol!=='alumno'){showAttendanceNotice('Inicia sesión con una cuenta de alumno para registrar esta entrada.',true);return;}
   const nav=[...document.querySelectorAll('.nav-link')].find(button=>button.textContent.trim()==='Entradas');
   await loadPage('asistencias','Entradas',nav);
-  showAttendanceNotice('QR listo. Pulsa «Registrar entrada» para guardar la entrada.');
+  showAttendanceNotice('QR listo. Pulsa «Registrar movimiento» para guardar el registro.');
 }
 function goLogin(message='') {
   credentialScannerCleanup?.();credentialScannerCleanup=undefined;
@@ -636,6 +636,9 @@ const referenceCollections={alumnoId:'alumnos',tutorId:'tutores',maestroId:'maes
 async function buildRecordForm(key,record=null){
   const definitions=forms[key]??editOnly[key];$('#record-title').textContent=`${record?'Editar':'Agregar'} ${labels[key].toLowerCase()}`;
   const form=$('#record-form');form.replaceChildren();const intro=document.createElement('p');intro.className='form-intro';intro.textContent=formGuides[key]??'Completa los datos del registro seleccionado. Los campos marcados son obligatorios.';form.append(intro);
+  if(key==='horarios'&&!record){
+    const templateBox=document.createElement('section');templateBox.className='schedule-template-picker';const title=document.createElement('strong');title.textContent='Plantilla escolar base';const note=document.createElement('small');note.textContent='Elige el día y bloque sugeridos; luego completa maestro, materia y grupo.';const day=document.createElement('select');day.setAttribute('aria-label','Día de la plantilla');for(const [value,label] of [[1,'Lunes'],[2,'Martes'],[3,'Miércoles'],[4,'Jueves'],[5,'Viernes'],[6,'Sábado']]){const option=document.createElement('option');option.value=String(value);option.textContent=label;day.append(option)}const period=document.createElement('select');period.setAttribute('aria-label','Bloque de la plantilla');const slots=[['07:00','07:50'],['07:50','08:40'],['08:50','09:40'],['09:40','10:30'],['10:40','11:30'],['11:30','12:20'],['12:30','13:20'],['13:20','14:10'],['14:20','15:10'],['15:10','16:00']];slots.forEach(([start,end],index)=>{const option=document.createElement('option');option.value=String(index);option.textContent='Bloque '+(index+1)+' · '+start+'–'+end;period.append(option)});const apply=document.createElement('button');apply.type='button';apply.className='secondary';apply.textContent='Aplicar bloque';apply.onclick=()=>{const [start,end]=slots[Number(period.value)];form.elements.namedItem('diaSemana').value=day.value;form.elements.namedItem('horaInicio').value=start;form.elements.namedItem('horaFin').value=end;};templateBox.append(title,note,day,period,apply);form.append(templateBox);
+  }
   for(const [name,label,type='text'] of definitions){
     const collection=referenceCollections[name];
     if(collection){
@@ -802,11 +805,11 @@ async function renderCredentialScanner(){
 async function renderQrAction(){
   document.querySelector('.planning-qr')?.remove();
   document.querySelector('.planning-live')?.remove();
-  const box=actionBox('Código de entrada temporal','El QR permanece válido durante 10 minutos y se renueva antes de vencer.');
+  const box=actionBox('QR de jornada','Elige si será para registrar la entrada o la salida. El QR dura 10 minutos y se renueva antes de vencer.');
   if(currentPage==='planificacion')box.classList.add('planning-qr');
   const row=document.createElement('div');row.className='inline-form';
-  const select=document.createElement('select');select.setAttribute('aria-label','Jornada');
-  const refresh=document.createElement('button');refresh.textContent='Generar código';
+  const select=document.createElement('select');select.setAttribute('aria-label','Jornada');const typeSelect=document.createElement('select');typeSelect.setAttribute('aria-label','Tipo de QR');for(const [value,label] of [['entrada','Registro de entrada'],['salida','Registro de salida']]){const option=document.createElement('option');option.value=value;option.textContent=label;typeSelect.append(option)}
+  const refresh=document.createElement('button');refresh.textContent='Generar QR de entrada';typeSelect.onchange=()=>{clearTimeout(qrRotationTimer);refresh.textContent=typeSelect.value==='salida'?'Generar QR de salida':'Generar QR de entrada';result.replaceChildren();};
   const result=document.createElement('div');result.className='qr-result';
   try{
     const days=await api('/api/jornadas?limit=500');
@@ -821,10 +824,10 @@ async function renderQrAction(){
   refresh.onclick=async()=>{
     clearTimeout(qrRotationTimer);
     try{
-      const data=await api('/api/qr_diarios/renovar',{method:'POST',body:JSON.stringify({jornadaId:select.value})});
+      const data=await api('/api/qr_diarios/renovar',{method:'POST',body:JSON.stringify({jornadaId:select.value,tipo:typeSelect.value})});
       result.replaceChildren();const {qrSvg}=await import('./qr.js');const image=document.createElement('img');
       image.className='qr-image';const qrLink=new URL('/',location.origin);qrLink.searchParams.set('qr',data.token);
-      image.alt='Enlace QR para registrar la entrada desde el teléfono';
+      image.alt=typeSelect.value==='salida'?'Enlace QR para registrar la salida desde el teléfono':'Enlace QR para registrar la entrada desde el teléfono';
       image.src=URL.createObjectURL(new Blob([qrSvg(qrLink.href)],{type:'image/svg+xml'}));
       const code=document.createElement('code');code.className='qr-manual-code';code.textContent=data.token;
       const manualHint=document.createElement('span');manualHint.className='qr-manual-hint';manualHint.textContent='Si no puedes escanearlo, escribe estos 5 números.';
@@ -835,7 +838,7 @@ async function renderQrAction(){
       qrRotationTimer=setTimeout(()=>{if(['qr_diarios','planificacion'].includes(currentPage))refresh.click()},refreshDelay);
     }catch(error){result.textContent=error.message;}
   };
-  row.append(select,refresh);box.append(row,result);$('#list').append(box);renderLiveAttendance(select);
+  row.append(select,typeSelect,refresh);box.append(row,result);$('#list').append(box);renderLiveAttendance(select);
 }
 function renderLiveAttendance(journeySelect){
   const panel=actionBox('Entradas en tiempo real','Consulta los registros más recientes de la jornada. La lista se actualiza cada 15 segundos.');
@@ -853,13 +856,13 @@ function renderLiveAttendance(journeySelect){
     loading=true;refresh.disabled=true;
     try{
       const data=await api(`/api/asistencias/tiempo-real?jornadaId=${encodeURIComponent(journeySelect.value)}`);
-      summary.textContent=`${data.total} ${data.total===1?'entrada registrada':'entradas registradas'}`;
+      summary.textContent=`${data.total} ${data.total===1?'movimiento registrado':'movimientos registrados'}`;
       list.replaceChildren();
-      if(!data.registros.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Todavía no hay entradas para esta jornada.';list.append(empty);}
+      if(!data.registros.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Todavía no hay entradas ni salidas para esta jornada.';list.append(empty);}
       for(const record of data.registros){
         const item=document.createElement('article');item.className='attendance-live-row';
         const identity=document.createElement('div');const name=document.createElement('strong');name.textContent=record.nombreSnapshot;const registration=document.createElement('span');registration.textContent=record.matricula?`Matrícula ${record.matricula}`:'Matrícula no disponible';identity.append(name,registration);
-        const time=document.createElement('time');time.dateTime=record.horaServidor;time.textContent=record.horaServidor?new Date(record.horaServidor).toLocaleTimeString('es-GT',{timeZone:data.zonaHoraria,hour:'2-digit',minute:'2-digit'}):'Hora no disponible';
+        const movement=document.createElement('small');movement.className='attendance-live-kind';movement.textContent=record.tipo==='salida'?'Salida registrada':'Entrada registrada';identity.append(movement);const time=document.createElement('time');time.dateTime=record.horaServidor;time.textContent=record.horaServidor?new Date(record.horaServidor).toLocaleTimeString('es-GT',{timeZone:data.zonaHoraria,hour:'2-digit',minute:'2-digit'}):'Hora no disponible';
         item.append(identity,time);list.append(item);
       }
       status.textContent=`Actualizado ${new Date().toLocaleTimeString('es-GT',{timeZone:data.zonaHoraria,hour:'2-digit',minute:'2-digit'})}.`;
@@ -872,11 +875,11 @@ function renderLiveAttendance(journeySelect){
   if(journeySelect.value)attendanceRefreshTimer=setInterval(()=>{if(['qr_diarios','planificacion'].includes(currentPage)&&document.visibilityState==='visible')void update();},15000);
 }
 function renderAttendanceAction(){
-  const box=actionBox('Registrar entrada','Escribe el código de cinco números o apunta la cámara al código QR.');
+  const box=actionBox('Registrar entrada o salida','Escribe el código de cinco números o escanea el QR que corresponda al movimiento.');
   const form=document.createElement('form');form.className='inline-form';
   const input=document.createElement('textarea');input.name='token';input.rows=2;input.placeholder='Código de 5 números o enlace QR';input.autocomplete='off';input.required=true;
   input.value=sessionStorage.getItem('pendingAttendanceQr')??'';
-  const submit=document.createElement('button');submit.textContent='Registrar entrada';
+  const submit=document.createElement('button');submit.textContent='Registrar movimiento';
   const camera=document.createElement('button');camera.type='button';camera.className='secondary';camera.textContent='Abrir cámara';
   const status=document.createElement('span');status.className='form-note';status.setAttribute('role','status');
   const video=document.createElement('video');video.className='camera-preview hidden';video.autoplay=true;video.playsInline=true;video.muted=true;
@@ -903,7 +906,7 @@ function renderAttendanceAction(){
         if(video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA&&video.videoWidth>0){
           try{
             const codes=await detector.detect(video);detectorErrors=0;
-            if(codes.length){input.value=extractAttendanceToken(codes[0].rawValue);status.textContent='Código leído. Pulsa «Registrar entrada» para guardar la entrada.';stopCamera();return;}
+            if(codes.length){input.value=extractAttendanceToken(codes[0].rawValue);status.textContent='Código leído. Pulsa «Registrar movimiento» para guardar el registro.';stopCamera();return;}
           }catch(error){
             detectorErrors++;
             if(detectorErrors>=8){status.textContent='El navegador tuvo problemas al leer la imagen de la cámara. Comprueba que el QR esté enfocado y actualiza Chrome si continúa.';stopCamera();return;}
@@ -957,6 +960,12 @@ function renderJustificationRequestAction(){
 async function renderScheduleView(records){
 
   const active=records.filter(record=>record.activo!==false&&record.grupoId);
+  if(me?.rol==='maestro'){
+    const names=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'],ordered=[...active].sort((a,b)=>Number(a.diaSemana)-Number(b.diaSemana)||String(a.horaInicio).localeCompare(String(b.horaInicio)));
+    if(!ordered.length){const empty=document.createElement('div');empty.className='empty-state';empty.textContent='Todavía no tienes grupos asignados en el horario.';$('#list').append(empty);return}
+    const agenda=document.createElement('div');agenda.className='teacher-agenda';
+    for(let day=0;day<7;day++){const lessons=ordered.filter(item=>Number(item.diaSemana)===day);if(!lessons.length)continue;const section=document.createElement('section');section.className='teacher-agenda-day';const heading=document.createElement('h3');heading.textContent=names[day];const list=document.createElement('div');list.className='teacher-agenda-list';for(const lesson of lessons){const row=document.createElement('article');row.className='teacher-agenda-lesson';const time=document.createElement('div');time.className='teacher-agenda-time';time.textContent=lesson.horaInicio+'–'+lesson.horaFin;const details=document.createElement('div');details.className='teacher-agenda-details';const group=document.createElement('strong');group.textContent='Grupo '+(lesson.grupoNombre||'sin nombre');const subject=document.createElement('span');subject.textContent=lesson.materiaNombre||'Clase';const meta=document.createElement('small');meta.textContent=[lesson.areaNombre,lesson.semestreNombre,lesson.ciclo,lesson.aula?'Aula '+lesson.aula:''].filter(Boolean).join(' · ');details.append(group,subject);if(meta.textContent)details.append(meta);row.append(time,details);list.append(row)}section.append(heading,list);agenda.append(section)}$('#list').append(agenda);return;
+  }
   const groups=new Map();
   for(const record of active){if(!groups.has(record.grupoId))groups.set(record.grupoId,[]);groups.get(record.grupoId).push(record);}
   if(!groups.size&&me?.rol!=='direccion'){
